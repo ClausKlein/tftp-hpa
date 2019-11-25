@@ -315,9 +315,10 @@ int main(int argc, char **argv)
 
     time_t my_time = 0;
     struct tm* p_tm;
-    char envtz[10];
+    char envtz[22];
     my_time = time(NULL);
     p_tm = localtime(&my_time);
+    // warning: ‘%+ld’ directive output may be truncated writing between 2 and 17 bytes into a region of size 6 [-Wformat-truncation=]
     snprintf(envtz, sizeof(envtz) - 1, "UTC%+ld", (p_tm->tm_gmtoff * -1)/3600);
     setenv("TZ", envtz, 0);
 

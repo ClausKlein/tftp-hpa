@@ -301,9 +301,10 @@ void *xmalloc(size_t);
 void *xrealloc(void *, size_t);
 char *xstrdup(const char *);
 
-#ifndef HAVE_BSD_SIGNAL
-void (*bsd_signal(int, void (*)(int))) (int);
+#if defined(HAVE_BSD_SIGNAL) && !defined(_BSD_SOURCE)
+void (*bsd_signal(int signum, void (*handler) (int))) (int);
 #endif
+
 #ifndef HAVE_DUP2
 int dup2(int, int);
 #endif

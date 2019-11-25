@@ -116,7 +116,7 @@ void send_ack(int sockfd, union sock_addr *to, unsigned short block)
 
 
 static size_t read_data(FILE *fp,
-                        int blocksize,
+                        size_t blocksize,
                         unsigned short block,
                         int seek,
                         struct tftphdr *out)
@@ -180,7 +180,7 @@ void set_verbose(int v)
     verbose = v;
 }
 
-int recv_with_timeout(int s, void *in, int len, int timeout)
+int recv_with_timeout(int s, void *in, size_t len, int timeout)
 {
     return recvfrom_flags_with_timeout(s, in, len, NULL, timeout, 0);
 }
@@ -227,7 +227,7 @@ int recvfrom_flags_with_timeout(int s,
 
 int receiver(int sockfd,
              union sock_addr *server,
-             int blocksize,
+             size_t blocksize,
              int windowsize,
              int timeout,
              FILE *fp,
@@ -318,7 +318,7 @@ abort:
 
 int sender(int sockfd,
            union sock_addr *server,
-           int blocksize,
+           size_t blocksize,
            int windowsize,
            int timeout,
            int rollover,
@@ -335,7 +335,7 @@ int sender(int sockfd,
     int seek = 0;
     int retries;
     size_t size;
-    int done = 0;
+    size_t done = 0;
     int n, r = 0;
 
     pktbuf = calloc(pktsize, 1);
@@ -358,7 +358,7 @@ int sender(int sockfd,
             n = sendto(sockfd, tp, size + 4, 0, &server->sa, SOCKLEN(server));
         else
             n = send(sockfd, tp, size + 4, 0);
-        if (n != size + 4) {
+        if (n != (int)(size + 4)) {
             syslog(LOG_WARNING, "tftpd: send: %m");
             r = E_SYSTEM_ERROR;
             goto abort;

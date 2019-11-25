@@ -3,10 +3,10 @@
 
 SUB =   lib common tftp tftpd
 
-%.build: MCONFIG aconfig.h version.h
+%.build: MCONFIG aconfig.h version.h config.h
 	$(MAKE) -C $(patsubst %.build, %, $@)
 
-%.install: MCONFIG aconfig.h version.h
+%.install: MCONFIG aconfig.h version.h config.h
 	$(MAKE) -C $(patsubst %.install, %, $@) install
 
 %.clean:

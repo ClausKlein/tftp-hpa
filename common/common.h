@@ -69,7 +69,7 @@ int format_error(struct tftphdr *tp, char *error);
 void die_on_error(struct tftphdr *tp);
 void send_error(int sockfd, union sock_addr *to, const char *msg);
 void send_ack(int sockfd, union sock_addr *to, unsigned short block);
-int recv_with_timeout(int s, void *in, int len, int timeout);
+int recv_with_timeout(int s, void *in, size_t len, int timeout);
 int recvfrom_with_timeout(int s, void *in, size_t len, union sock_addr *from, int timeout);
 int recvfrom_flags_with_timeout(int s,
                                 void *in,
@@ -79,7 +79,7 @@ int recvfrom_flags_with_timeout(int s,
                                 int flags);
 int receiver(int sockfd,
              union sock_addr *server,
-             int blocksize,
+             size_t blocksize,
              int windowsize,
              int timeout,
              FILE *fp,
@@ -88,7 +88,7 @@ int receiver(int sockfd,
 
 int sender(int sockfd,
            union sock_addr *server,
-           int blocksize,
+           size_t blocksize,
            int windowsize,
            int timeout,
            int rollover,

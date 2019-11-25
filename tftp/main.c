@@ -554,7 +554,12 @@ void put(int argc, char *argv[])
     int fd;
     int n, err;
     char *cp, *targ;
-    long dirlen, namelen, lastlen=0;
+    long dirlen;
+
+#ifdef WITH_READLINE
+    long namelen;
+    long lastlen=0;
+#endif
 
     if (argc < 2) {
         getmoreargs("send ", "(file) ");

@@ -155,7 +155,7 @@ or
 .B utimeout
 option is negotiated.  The default is 1000000 (1 second.)
 .TP
-\fB\-\-map-file\fP \fIremap-file\fP, \fB\-m\fP \fIremap-file\fP
+\fB\-\-map\-file\fP \fIremap-file\fP, \fB\-m\fP \fIremap-file\fP
 Specify the use of filename remapping.  The
 .I remap-file
 is a file containing the remapping rules.  See the section on filename
@@ -227,6 +227,11 @@ Set the time before the server retransmits a packet, in microseconds.
 \fBrollover\fP (nonstandard)
 Set the block number to resume at after a block number rollover.  The
 default and recommended value is zero.
+.TP
+\fBwindowsize\fP (RFC 7440)
+Set the windowsize to a number of blocks that should be sent before
+expecting an ack. The default is 1, which means the same functionality
+as if windowsize wasn't used. Maximum is 64.
 .PP
 The
 .B \-\-refuse
@@ -238,7 +243,7 @@ option, but crash with an error if they actually get the option
 accepted by the server.
 .SH "FILENAME REMAPPING"
 The
-.B \-\-map-file
+.B \-\-map\-file
 option specifies a file which contains filename remapping rules.  Each
 non-comment line (comments begin with hash marks,
 .BR # )
@@ -398,7 +403,7 @@ flag is used to set up a chroot() environment for the server to run in
 once a connection has been set up.
 .PP
 Finally, the filename remapping
-.RB ( \-\-map-file
+.RB ( \-\-map\-file
 flag) support can be used to provide a limited amount of additional
 access control.
 .SH "CONFORMING TO"
@@ -416,6 +421,9 @@ RFC 2348,
 .br
 RFC 2349,
 .IR "TFTP Timeout Interval and Transfer Size Options" .
+.br
+RFC 7440,
+.IR "TFTP Windowsize Option" .
 .SH "AUTHOR"
 This version of
 .B tftpd

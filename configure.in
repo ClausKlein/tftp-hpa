@@ -158,6 +158,7 @@ OBJROOT=`pwd`
 
 XTRA=false
 PA_SEARCH_LIBS_AND_ADD(xmalloc, iberty)
+PA_SEARCH_LIBS_AND_ADD(xrealloc, iberty)
 PA_SEARCH_LIBS_AND_ADD(xstrdup, iberty)
 PA_SEARCH_LIBS_AND_ADD(bsd_signal, bsd, bsdsignal)
 PA_SEARCH_LIBS_AND_ADD(getopt_long, getopt, getopt_long)

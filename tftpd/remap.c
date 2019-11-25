@@ -291,6 +291,7 @@ struct rule *parserulefile(FILE * f)
     int lineno = 0;
     int err = 0;
 
+    memset(this_rule, '\0', sizeof(struct rule));
     while (lineno++, fgets(line, MAXLINE, f)) {
         rv = parseline(line, this_rule, lineno);
         if (rv < 0)
@@ -299,6 +300,7 @@ struct rule *parserulefile(FILE * f)
             *last_rule = this_rule;
             last_rule = &this_rule->next;
             this_rule = tfmalloc(sizeof(struct rule));
+            memset(this_rule, '\0', sizeof(struct rule));
         }
     }
 

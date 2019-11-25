@@ -82,6 +82,9 @@ Default to verbose mode.
 .B \-V
 Print the version number and configuration to standard output, then
 exit gracefully.
+.TP
+.B \-w\fP \fIwindow-size\fP
+Set the "windowsize" TFTP option (RFC 7440) to the specified value.
 .SH COMMANDS
 Once
 .B tftp

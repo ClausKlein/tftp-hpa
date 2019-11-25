@@ -4,7 +4,7 @@ VERSION = $(shell cat ../version)
 -include ../MCONFIG
 include ../MRULES
 
-OBJS = tftpsubs.$(O)
+OBJS = tftpsubs.$(O) common.$(O)
 LIB  = libcommon.a
 
 all: $(LIB)
@@ -14,7 +14,7 @@ $(LIB): $(OBJS)
 	$(AR) $(LIB) $(OBJS)
 	$(RANLIB) $(LIB)
 
-$(OBJS): tftpsubs.h
+$(OBJS): tftpsubs.h common.h
 
 install:
 

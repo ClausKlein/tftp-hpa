@@ -29,5 +29,5 @@ rg	\\		/		# Convert backslashes to slashes
 rg	\#		@		# Convert hash marks to @ signs
 rg	/../		/..no../	# Convert /../ to /..no../
 e	^ok/				# These are always ok
-r	^[^/]		/tftpboot/\0	# Convert non-absolute files
+r	^[^/]		/var/lib/tftpboot/\0	# Convert non-absolute files
 a	\.pvt$				# Reject requests for private files

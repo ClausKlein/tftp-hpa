@@ -38,20 +38,8 @@
 #ifndef TFTPSUBS_H
 #define TFTPSUBS_H
 
+#include "common.h"
 #include "config.h"
-
-union sock_addr {
-    struct sockaddr     sa;
-    struct sockaddr_in  si;
-#ifdef HAVE_IPV6
-    struct sockaddr_in6 s6;
-#endif
-};
-
-#define SOCKLEN(sock) \
-    (((union sock_addr*)sock)->sa.sa_family == AF_INET ? \
-    (sizeof(struct sockaddr_in)) : \
-    (sizeof(union sock_addr)))
 
 #ifdef HAVE_IPV6
 #define SOCKPORT(sock) \

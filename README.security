@@ -13,10 +13,10 @@ probably the following:
 
 1. Create a separate "tftpd" user and group only used for tftpd;
 2. Have all your boot files in a single directory tree (usually called 
-   /tftpboot).
-3. Specify "-p -u tftpd -s /tftpboot" on the tftpd command line; if
+   /var/lib/tftpboot).
+3. Specify "-p -u tftpd -s /var/lib/tftpboot" on the tftpd command line; if
    you want clients to be able to create files use
-   "-p -c -U 002 -u tftpd -s /tftpboot" (replace 002 with whatever
+   "-p -c -U 002 -u tftpd -s /var/lib/tftpboot" (replace 002 with whatever
    umask is appropriate for your setup.)
 
 	       =======================================
@@ -36,12 +36,12 @@ directly.  Thus, if your /etc/inetd.conf looks like this (all on one
 line):
 
 tftp	dgram	udp	wait	root	/usr/sbin/tcpd
-/usr/sbin/in.tftpd -s /tftpboot -r blksize
+/usr/sbin/in.tftpd -s /var/lib/tftpboot -r blksize
 
 ... it's better to change to ...
 
 tftp	dgram	udp	wait	root	/usr/sbin/in.tftpd
-in.tftpd -s /tftpboot -r blksize
+in.tftpd -s /var/lib/tftpboot -r blksize
 
 You should make sure that you are using "wait" option in tftpd; you
 also need to have tftpd spawned as root in order for chroot (-s) to

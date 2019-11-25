@@ -48,6 +48,8 @@
 #include <pwd.h>
 #include <limits.h>
 #include <syslog.h>
+#include <poll.h>
+#include <stdarg.h>
 
 #include "common/tftpsubs.h"
 #include "recvfrom.h"
@@ -72,23 +74,16 @@ static int ai_fam = AF_UNSPEC;
 static int ai_fam = AF_INET;
 #endif
 
-#define	TIMEOUT 1000000         /* Default timeout (us) */
-#define TRIES   6               /* Number of attempts to send each packet */
-#define TIMEOUT_LIMIT ((1 << TRIES)-1)
-
 const char *tftpd_progname;
 static int peer;
-static unsigned long timeout  = TIMEOUT;        /* Current timeout value */
-static unsigned long rexmtval = TIMEOUT;       /* Basic timeout value */
-static unsigned long maxtimeout = TIMEOUT_LIMIT * TIMEOUT;
-static int timeout_quit = 0;
-static sigjmp_buf timeoutbuf;
 static uint16_t rollover_val = 0;
+static int windowsize = 1;
 
 #define	PKTSIZE	MAX_SEGSIZE+4
 static char buf[PKTSIZE];
-static char ackbuf[PKTSIZE];
+static char pktbuf[PKTSIZE];
 static unsigned int max_blksize = MAX_SEGSIZE;
+#define MAX_WINDOWSIZE 64
 
 static char tmpbuf[INET6_ADDRSTRLEN], *tmp_p;
 
@@ -112,8 +107,7 @@ static struct rule *rewrite_rules = NULL;
 #endif
 
 int tftp(struct tftphdr *, int);
-static void nak(int, const char *);
-static void timer(int);
+static void nak(int error, const char *msg);
 static void do_opt(const char *, const char *, char **);
 
 static int set_blksize(uintmax_t *);
@@ -122,6 +116,9 @@ static int set_tsize(uintmax_t *);
 static int set_timeout(uintmax_t *);
 static int set_utimeout(uintmax_t *);
 static int set_rollover(uintmax_t *);
+static int set_windowsize(uintmax_t *);
+
+int g_timeout = 1000; /* ms */
 
 struct options {
     const char *o_opt;
@@ -133,6 +130,7 @@ struct options {
     {"timeout",  set_timeout},
     {"utimeout", set_utimeout},
     {"rollover", set_rollover},
+    {"windowsize", set_windowsize},
     {NULL, NULL}
 };
 
@@ -149,16 +147,6 @@ static volatile sig_atomic_t exit_signal = 0;
 static void handle_exit(int sig)
 {
     exit_signal = sig;
-}
-
-/* Handle timeout signal or timeout event */
-void timer(int sig)
-{
-    (void)sig;                  /* Suppress unused warning */
-    timeout <<= 1;
-    if (timeout >= maxtimeout || timeout_quit)
-        exit(0);
-    siglongjmp(timeoutbuf, 1);
 }
 
 #ifdef WITH_REGEX
@@ -228,64 +216,6 @@ static void pmtu_discovery_off(int fd)
 #endif
 }
 
-/*
- * Receive packet with synchronous timeout; timeout is adjusted
- * to account for time spent waiting.
- */
-static int recv_time(int s, void *rbuf, int len, unsigned int flags,
-                     unsigned long *timeout_us_p)
-{
-    fd_set fdset;
-    struct timeval tmv, t0, t1;
-    int rv, err;
-    unsigned long timeout_us = *timeout_us_p;
-    unsigned long timeout_left, dt;
-
-    gettimeofday(&t0, NULL);
-    timeout_left = timeout_us;
-
-    for (;;) {
-        FD_ZERO(&fdset);
-        FD_SET(s, &fdset);
-
-        do {
-            tmv.tv_sec = timeout_left / 1000000;
-            tmv.tv_usec = timeout_left % 1000000;
-
-            rv = select(s + 1, &fdset, NULL, NULL, &tmv);
-            err = errno;
-
-            gettimeofday(&t1, NULL);
-
-            dt = (t1.tv_sec - t0.tv_sec) * 1000000 +
-		 (t1.tv_usec - t0.tv_usec);
-            *timeout_us_p = timeout_left =
-                (dt >= timeout_us) ? 1 : (timeout_us - dt);
-        } while (rv == -1 && err == EINTR);
-
-        if (rv == 0) {
-            timer(0);           /* Should not return */
-            return -1;
-        }
-
-        set_socket_nonblock(s, 1);
-        rv = recv(s, rbuf, len, flags);
-        err = errno;
-        set_socket_nonblock(s, 0);
-
-        if (rv < 0) {
-            if (E_WOULD_BLOCK(err) || err == EINTR) {
-                continue;       /* Once again, with feeling... */
-            } else {
-                errno = err;
-                return rv;
-            }
-        } else {
-            return rv;
-        }
-    }
-}
-
 static int split_port(char **ap, char **pp)
 {
     char *a, *p;
@@ -324,7 +254,7 @@ static int split_port(char **ap, char **pp)
 enum long_only_options {
     OPT_VERBOSITY	= 256,
 };
-    
+
 static struct option long_options[] = {
     { "ipv4",        0, NULL, '4' },
     { "ipv6",        0, NULL, '6' },
@@ -382,6 +312,14 @@ int main(int argc, char **argv)
 #endif
     const char *pidfile = NULL;
     u_short tp_opcode;
+
+    time_t my_time = 0;
+    struct tm* p_tm;
+    char envtz[10];
+    my_time = time(NULL);
+    p_tm = localtime(&my_time);
+    snprintf(envtz, sizeof(envtz) - 1, "UTC%+ld", (p_tm->tm_gmtoff * -1)/3600);
+    setenv("TZ", envtz, 0);
 
     /* basename() is way too much of a pain from a portability standpoint */
 
@@ -446,8 +384,7 @@ int main(int argc, char **argv)
                     syslog(LOG_ERR, "Bad timeout value: %s", optarg);
                     exit(EX_USAGE);
                 }
-                rexmtval = timeout = tov;
-                maxtimeout = rexmtval * TIMEOUT_LIMIT;
+                g_timeout = tov;
             }
             break;
         case 'R':
@@ -997,7 +934,10 @@ int main(int argc, char **argv)
             exit(EX_OSERR);
         }
 #ifdef __CYGWIN__
-        chdir("/");             /* Cygwin chroot() bug workaround */
+				if (chdir("/") < 0) {			/* Cygwin chroot() bug workaround */
+					syslog(LOG_ERR, "chroot: %m");
+					exit(EX_OSERR);
+				}
 #endif
     }
 #ifdef HAVE_SETREGID
@@ -1042,14 +982,14 @@ int main(int argc, char **argv)
 
 static char *rewrite_access(char *, int, int, const char **);
 static int validate_access(char *, int, const struct formats *, const char **);
-static void tftp_sendfile(const struct formats *, struct tftphdr *, int);
+static void tftp_sendfile(const struct formats *, struct tftphdr *, int, char *);
 static void tftp_recvfile(const struct formats *, struct tftphdr *, int);
 
 struct formats {
     const char *f_mode;
     char *(*f_rewrite) (char *, int, int, const char **);
     int (*f_validate) (char *, int, const struct formats *, const char **);
-    void (*f_send) (const struct formats *, struct tftphdr *, int);
+    void (*f_send) (const struct formats *, struct tftphdr *, int, char *);
     void (*f_recv) (const struct formats *, struct tftphdr *, int);
     int f_convert;
 };
@@ -1076,9 +1016,9 @@ int tftp(struct tftphdr *tp, int size)
     u_short tp_opcode = ntohs(tp->th_opcode);
 
     char *val = NULL, *opt = NULL;
-    char *ap = ackbuf + 2;
+    char *ap = pktbuf + 2;
 
-    ((struct tftphdr *)ackbuf)->th_opcode = htons(OACK);
+    ((struct tftphdr *)pktbuf)->th_opcode = htons(OACK);
 
     origfilename = cp = (char *)&(tp->th_stuff);
     argn = 0;
@@ -1114,6 +1054,9 @@ int tftp(struct tftphdr *tp, int size)
                 nak(EACCESS, errmsgptr);        /* File denied by mapping rule */
                 exit(0);
             }
+	    ecode =
+                (*pf->f_validate) (filename, tp_opcode, pf, &errmsgptr);
+
             if (verbosity >= 1) {
                 tmp_p = (char *)inet_ntop(from.sa.sa_family, SOCKADDR_P(&from),
                                           tmpbuf, INET6_ADDRSTRLEN);
@@ -1132,9 +1075,14 @@ int tftp(struct tftphdr *tp, int size)
                            tp_opcode == WRQ ? "WRQ" : "RRQ",
                            tmp_p, origfilename,
                            filename);
+
+                if (ecode == 1) {
+                    syslog(LOG_NOTICE, "Client %s File not found %s\n",
+                    tmp_p,filename);
+                }
+
             }
-            ecode =
-                (*pf->f_validate) (filename, tp_opcode, pf, &errmsgptr);
+
             if (ecode) {
                 nak(ecode, errmsgptr);
                 exit(0);
@@ -1153,16 +1101,16 @@ int tftp(struct tftphdr *tp, int size)
         exit(0);
     }
 
-    if (ap != (ackbuf + 2)) {
+    if (ap != (pktbuf + 2)) {
         if (tp_opcode == WRQ)
-            (*pf->f_recv) (pf, (struct tftphdr *)ackbuf, ap - ackbuf);
+            (*pf->f_recv) (pf, (struct tftphdr *)pktbuf, ap - pktbuf);
         else
-            (*pf->f_send) (pf, (struct tftphdr *)ackbuf, ap - ackbuf);
+            (*pf->f_send) (pf, (struct tftphdr *)pktbuf, ap - pktbuf, origfilename);
     } else {
         if (tp_opcode == WRQ)
             (*pf->f_recv) (pf, NULL, 0);
         else
-            (*pf->f_send) (pf, NULL, 0);
+            (*pf->f_send) (pf, NULL, 0, origfilename);
     }
     exit(0);                    /* Request completed */
 }
@@ -1225,7 +1173,7 @@ static int set_blksize2(uintmax_t *vp)
 static int set_rollover(uintmax_t *vp)
 {
     uintmax_t ro = *vp;
-    
+
     if (ro > 65535)
 	return 0;
 
@@ -1264,8 +1212,7 @@ static int set_timeout(uintmax_t *vp)
     if (to < 1 || to > 255)
         return 0;
 
-    rexmtval = timeout = to * 1000000UL;
-    maxtimeout = rexmtval * TIMEOUT_LIMIT;
+    g_timeout = to * 1000;
 
     return 1;
 }
@@ -1278,8 +1225,20 @@ static int set_utimeout(uintmax_t *vp)
     if (to < 10000UL || to > 255000000UL)
         return 0;
 
-    rexmtval = timeout = to;
-    maxtimeout = rexmtval * TIMEOUT_LIMIT;
+    g_timeout = to / 1000;
+
+    return 1;
+}
+
+/*
+ * Set window size (c.f. RFC7440)
+ */
+static int set_windowsize(uintmax_t *vp)
+{
+    if (*vp < 1 || *vp > MAX_WINDOWSIZE)
+        return 0;
+
+    windowsize = *vp;
 
     return 1;
 }
@@ -1320,11 +1279,11 @@ static void do_opt(const char *opt, const char *val, char **ap)
 		optlen = strlen(opt);
 		retlen = sprintf(retbuf, "%"PRIuMAX, v);
 
-                if (p + optlen + retlen + 2 >= ackbuf + sizeof(ackbuf)) {
+                if (p + optlen + retlen + 2 >= pktbuf + sizeof(pktbuf)) {
                     nak(EOPTNEG, "Insufficient space for options");
                     exit(0);
                 }
-		
+
 		memcpy(p, opt, optlen+1);
 		p += optlen+1;
 		memcpy(p, retbuf, retlen+1);
@@ -1365,24 +1324,25 @@ static int rewrite_macros(char macro, char *output)
             return strlen(p);
 
     case 'x':
-        if (output) {
-            if (from.sa.sa_family == AF_INET) {
+        if (from.sa.sa_family == AF_INET) {
+            if (output) {
                 sprintf(output, "%08lX",
                     (unsigned long)ntohl(from.si.sin_addr.s_addr));
-                l = 8;
-#ifdef HAVE_IPV6
-            } else {
-                unsigned char *c = (unsigned char *)SOCKADDR_P(&from);
-                p = tb;
-                for (l = 0; l < 16; l++) {
-                    sprintf(p, "%02X", *c);
-                    c++;
-                    p += 2;
-                }
-                strcpy(output, tb);
-                l = strlen(tb);
-#endif
             }
+            l = 8;
+#ifdef HAVE_IPV6
+        } else {
+            unsigned char *c = (unsigned char *)SOCKADDR_P(&from);
+            p = tb;
+            for (l = 0; l < 16; l++) {
+                sprintf(p, "%02X", *c);
+                c++;
+                p += 2;
+            }
+            if (output)
+                strcpy(output, tb);
+            l = strlen(tb);
+#endif
         }
         return l;
 
@@ -1544,99 +1504,65 @@ static int validate_access(char *filename, int mode,
 /*
  * Send the requested file.
  */
-static void tftp_sendfile(const struct formats *pf, struct tftphdr *oap, int oacklen)
+static void tftp_sendfile(const struct formats *pf, struct tftphdr *oap, int oacklen, char *filename)
 {
-    struct tftphdr *dp;
-    struct tftphdr *ap;         /* ack packet */
-    static u_short block = 1;   /* Static to avoid longjmp funnies */
-    u_short ap_opcode, ap_block;
-    unsigned long r_timeout;
-    int size, n;
+    struct tftphdr *tp = (struct tftphdr *)pktbuf;
+    unsigned short tp_opcode, tp_block;
+    int retries = RETRIES;
+    int timed_out = 0;
+    int n, r = 0;
+    (void) pf;
 
+    set_verbose(verbosity);
     if (oap) {
-        timeout = rexmtval;
-        (void)sigsetjmp(timeoutbuf, 1);
-      oack:
-        r_timeout = timeout;
-        if (send(peer, oap, oacklen, 0) != oacklen) {
-            syslog(LOG_WARNING, "tftpd: oack: %m\n");
-            goto abort;
-        }
-        for (;;) {
-            n = recv_time(peer, ackbuf, sizeof(ackbuf), 0, &r_timeout);
-            if (n < 0) {
-                syslog(LOG_WARNING, "tftpd: read: %m\n");
+        do {
+            if (send(peer, oap, oacklen, 0) != oacklen) {
+                syslog(LOG_WARNING, "tftpd: oack: %m\n");
                 goto abort;
             }
-            ap = (struct tftphdr *)ackbuf;
-            ap_opcode = ntohs((u_short) ap->th_opcode);
-            ap_block = ntohs((u_short) ap->th_block);
 
-            if (ap_opcode == ERROR) {
-                syslog(LOG_WARNING,
-                       "tftp: client does not accept options\n");
+            n = recv_with_timeout(peer, pktbuf, sizeof(pktbuf), g_timeout);
+            if (n < 0) {
+                syslog(LOG_WARNING, "tftpd: recv: %m");
                 goto abort;
+            } else if (n == 0) {
+                if (--retries <= 0) {
+                    timed_out = 1;
+                    goto abort;
+                }
+                continue;
             }
-            if (ap_opcode == ACK) {
-                if (ap_block == 0)
-                    break;
-                /* Resynchronize with the other side */
-                (void)synchnet(peer);
-                goto oack;
+
+            tp_opcode = ntohs(tp->th_opcode);
+            tp_block  = ntohs(tp->th_block);
+
+            if (tp_opcode == ERROR) {
+                char error[ERROR_MAXLEN];
+
+                format_error(tp, error);
+                syslog(LOG_WARNING, "%s", error);
+                goto abort;
+            } else if (!(tp_opcode == ACK && tp_block == 0)) {
+                syslog(LOG_WARNING, "unexpected packet %s block=%u", opcode_to_str(tp_opcode), tp_block);
+                send_error(peer, NULL, "Unexpected packet");
+                exit(1);
             }
-        }
+        } while (n == 0);
     }
 
-    dp = r_init();
-    do {
-        size = readit(file, &dp, pf->f_convert);
-        if (size < 0) {
-            nak(errno + 100, NULL);
-            goto abort;
-        }
-        dp->th_opcode = htons((u_short) DATA);
-        dp->th_block = htons((u_short) block);
-        timeout = rexmtval;
-        (void)sigsetjmp(timeoutbuf, 1);
+    r = sender(peer, NULL, segsize, windowsize, TIMEOUT, rollover_val, file, NULL);
 
-        r_timeout = timeout;
-        if (send(peer, dp, size + 4, 0) != size + 4) {
-            syslog(LOG_WARNING, "tftpd: write: %m");
-            goto abort;
-        }
-        read_ahead(file, pf->f_convert);
-        for (;;) {
-            n = recv_time(peer, ackbuf, sizeof(ackbuf), 0, &r_timeout);
-            if (n < 0) {
-                syslog(LOG_WARNING, "tftpd: read(ack): %m");
-                goto abort;
-            }
-            ap = (struct tftphdr *)ackbuf;
-            ap_opcode = ntohs((u_short) ap->th_opcode);
-            ap_block = ntohs((u_short) ap->th_block);
-
-            if (ap_opcode == ERROR)
-                goto abort;
-
-            if (ap_opcode == ACK) {
-                if (ap_block == block) {
-                    break;
-                }
-                /* Re-synchronize with the other side */
-                (void)synchnet(peer);
-                /*
-                 * RFC1129/RFC1350: We MUST NOT re-send the DATA
-                 * packet in response to an invalid ACK.  Doing so
-                 * would cause the Sorcerer's Apprentice bug.
-                 */
-            }
-
-        }
-	if (!++block)
-	  block = rollover_val;
-    } while (size == segsize);
-  abort:
-    (void)fclose(file);
+    tmp_p = (char *)inet_ntop(from.sa.sa_family, SOCKADDR_P(&from),
+                              tmpbuf, INET6_ADDRSTRLEN);
+    if (!tmp_p) {
+            tmp_p = tmpbuf;
+            strcpy(tmpbuf, "???");
+    }
+    syslog(LOG_NOTICE, "Client %s finished %s", tmp_p, filename);
+abort:
+    if (timed_out || r == E_TIMED_OUT)
+        syslog(LOG_NOTICE, "Client %s timed out", tmp_p);
+    fclose(file);
 }
 
 /*
@@ -1644,90 +1570,44 @@ static void tftp_sendfile(const struct formats *pf, struct tftphdr *oap, int oac
  */
 static void tftp_recvfile(const struct formats *pf, struct tftphdr *oap, int oacklen)
 {
-    struct tftphdr *dp;
-    int n, size;
-    /* These are "static" to avoid longjmp funnies */
-    static struct tftphdr *ap;  /* ack buffer */
-    static u_short block = 0;
-    static int acksize;
-    u_short dp_opcode, dp_block;
-    unsigned long r_timeout;
+    int retries = RETRIES;
+    int timed_out = 0;
+    int r;
+    (void) pf;
 
-    dp = w_init();
-    do {
-        timeout = rexmtval;
-
-        if (!block && oap) {
-            ap = (struct tftphdr *)ackbuf;
-            acksize = oacklen;
-        } else {
-            ap = (struct tftphdr *)ackbuf;
-            ap->th_opcode = htons((u_short) ACK);
-            ap->th_block = htons((u_short) block);
-            acksize = 4;
-            /* If we're sending a regular ACK, that means we have successfully
-             * sent the OACK. Clear oap so that we won't try to send another
-             * OACK when the block number wraps back to 0. */
-            oap = NULL;
-        }
-        if (!++block)
-	  block = rollover_val;
-        (void)sigsetjmp(timeoutbuf, 1);
-      send_ack:
-        r_timeout = timeout;
-        if (send(peer, ackbuf, acksize, 0) != acksize) {
-            syslog(LOG_WARNING, "tftpd: write(ack): %m");
-            goto abort;
-        }
-        write_behind(file, pf->f_convert);
-        for (;;) {
-            n = recv_time(peer, dp, PKTSIZE, 0, &r_timeout);
-            if (n < 0) {        /* really? */
-                syslog(LOG_WARNING, "tftpd: read: %m");
+    set_verbose(verbosity);
+    if (oap) {
+        do {
+            if (send(peer, oap, oacklen, 0) != oacklen) {
+                syslog(LOG_WARNING, "tftpd: oack: %m\n");
                 goto abort;
             }
-            dp_opcode = ntohs((u_short) dp->th_opcode);
-            dp_block = ntohs((u_short) dp->th_block);
-            if (dp_opcode == ERROR)
-                goto abort;
-            if (dp_opcode == DATA) {
-                if (dp_block == block) {
-                    break;      /* normal */
+            r = recvfrom_flags_with_timeout(peer, pktbuf, sizeof(pktbuf), NULL, TIMEOUT, MSG_PEEK);
+            if (r == 0) {
+                if (--retries <= 0) {
+                    timed_out = 1;
+                    goto abort;
                 }
-                /* Re-synchronize with the other side */
-                (void)synchnet(peer);
-                if (dp_block == (block - 1))
-                    goto send_ack;      /* rexmit */
             }
-        }
-        /*  size = write(file, dp->th_data, n - 4); */
-        size = writeit(file, &dp, n - 4, pf->f_convert);
-        if (size != (n - 4)) {  /* ahem */
-            if (size < 0)
-                nak(errno + 100, NULL);
-            else
-                nak(ENOSPACE, NULL);
-            goto abort;
-        }
-    } while (size == segsize);
-    write_behind(file, pf->f_convert);
-    (void)fclose(file);         /* close data file */
-
-    ap->th_opcode = htons((u_short) ACK);       /* send the "final" ack */
-    ap->th_block = htons((u_short) (block));
-    (void)send(peer, ackbuf, 4, 0);
-
-    timeout_quit = 1;           /* just quit on timeout */
-    n = recv_time(peer, buf, sizeof(buf), 0, &timeout); /* normally times out and quits */
-    timeout_quit = 0;
-
-    if (n >= 4 &&               /* if read some data */
-        dp_opcode == DATA &&    /* and got a data block */
-        block == dp_block) {    /* then my last ack was lost */
-        (void)send(peer, ackbuf, 4, 0); /* resend final ack */
+        } while (r == 0);
+    } else {
+        do {
+            send_ack(peer, NULL, 0);
+            r = recvfrom_flags_with_timeout(peer, pktbuf, sizeof(pktbuf), NULL, TIMEOUT, MSG_PEEK);
+            if (r == 0) {
+                if (--retries <= 0) {
+                    timed_out = 1;
+                    goto abort;
+                }
+            }
+        } while (r == 0);
     }
-  abort:
-    return;
+
+    r = receiver(peer, NULL, segsize, windowsize, TIMEOUT, file, NULL, NULL);
+abort:
+    if (timed_out || r == E_TIMED_OUT)
+        syslog(LOG_NOTICE, "Client %s timed out", tmp_p);
+    fclose(file);
 }
 
 static const char *const errmsgs[] = {

@@ -404,3 +404,23 @@ char *strip_address(char *addr)
     return addr;
 }
 #endif
+
+
+int str_equal(const char *s1, const char *s2)
+{
+    return !strcmp(s1, s2);
+}
+
+
+const char *opcode_to_str(unsigned short opcode)
+{
+    switch(opcode) {
+        case RRQ:   return "RRQ";
+        case WRQ:   return "WRQ";
+        case DATA:  return "DATA";
+        case ACK:   return "ACK";
+        case ERROR: return "ERROR";
+        case OACK:  return "OACK";
+    }
+    return "UNKNOWN";
+}

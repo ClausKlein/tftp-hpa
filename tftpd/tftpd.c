@@ -79,7 +79,6 @@ static int peer;
 static uint16_t rollover_val = 0;
 static int windowsize = 1;
 
-#define	PKTSIZE	MAX_SEGSIZE+4
 static char buf[PKTSIZE];
 static char pktbuf[PKTSIZE];
 static unsigned int max_blksize = MAX_SEGSIZE;
@@ -671,6 +670,7 @@ int main(int argc, char **argv)
         /* Daemonize this process */
         /* Note: when running in secure mode (-s), we must not chdir, since
            we are already in the proper directory. */
+        /* TODO: warning: 'daemon' is deprecated on OSX; Use posix_spawn APIs instead! CK */
         if (!nodaemon && daemon(secure, 0) < 0) {
             syslog(LOG_ERR, "cannot daemonize: %m");
             exit(EX_OSERR);

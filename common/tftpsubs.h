@@ -103,6 +103,10 @@ int writeit(FILE *, struct tftphdr **, int, int);
 extern int segsize;
 #define MAX_SEGSIZE	65464
 
+#ifndef PKTSIZE
+#define	PKTSIZE	MAX_SEGSIZE+4
+#endif
+
 int pick_port_bind(int sockfd, union sock_addr *myaddr,
                    unsigned int from, unsigned int to);
 

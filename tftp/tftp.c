@@ -42,7 +42,6 @@ extern int f;                    /* the opened socket */
 extern int trace_opt;
 extern int verbose;
 /* TODO: Adjust when blocksize is implemented. */
-#define PKTSIZE    SEGSIZE+4
 static char pktbuf[PKTSIZE];
 
 static void printstats(const char *, unsigned long);
@@ -69,7 +68,7 @@ static void die(const char *fmt, ...)
 static size_t make_request(unsigned short opcode,
                            const char *name,
                            const char *mode,
-                           int blocksize,
+                           size_t blocksize,
                            int windowsize,
                            struct tftphdr *out)
 {
@@ -122,7 +121,7 @@ static void send_request(int sock,
                          short request,
                          const char *name,
                          const char *mode,
-                         unsigned blocksize,
+                         size_t blocksize,
                          unsigned windowsize)
 {
     struct tftphdr *out;
@@ -166,7 +165,7 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
 {
     union sock_addr server = peeraddr;
     unsigned long amount = 0;
-    int blocksize = SEGSIZE;
+    size_t blocksize = SEGSIZE;
     char *options;
     int optlen;
     int retries;
@@ -261,7 +260,7 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
 {
     union sock_addr server = peeraddr;
     unsigned long amount = 0;
-    int blocksize = SEGSIZE;
+    size_t blocksize = SEGSIZE;
     char *options, error[ERROR_MAXLEN];
     int optlen;
     int retries;

@@ -34,6 +34,17 @@
 #ifndef RECVFILE_H
 #define RECVFILE_H
 
+#include "../common/tftpsubs.h"
+
+/* TODO: This 'g_peeraddr' global should be removed. */
+extern union sock_addr g_peeraddr;  /* filled in by main */
+/* TODO: This 'g_blocksize' global should be removed. */
+extern size_t g_blocksize;          /* filled in by main */
+
+extern int g_s;                    /* the opened socket */
+extern int g_trace_opt;
+extern int g_verbose;
+
 void tftp_recvfile(int, const char *, const char *, int);
 void tftp_sendfile(int, const char *, const char *, int);
 

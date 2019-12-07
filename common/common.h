@@ -38,7 +38,7 @@
 #include "../config.h"
 
 #define TIMEOUT 1000 /* ms */
-#define RETRIES 6
+#define RETRIES 5
 
 #define E_TIMED_OUT -1
 #define E_RECEIVED_ERROR -2

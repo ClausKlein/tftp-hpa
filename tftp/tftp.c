@@ -32,19 +32,10 @@
  */
 
 #include "extern.h"
-#include "../common/tftpsubs.h"
 
 #include <stdarg.h>
 #include <poll.h>
 
-/* TODO: This 'peeraddr' global should be removed. */
-extern union sock_addr peeraddr; /* filled in by main */
-/* TODO: This 'g_blocksize' global should be removed. */
-extern size_t g_blocksize;       /* filled in by main */
-
-extern int f;                    /* the opened socket */
-extern int trace_opt;
-extern int verbose;
 static char pktbuf[PKTSIZE];
 
 static void printstats(const char *, unsigned long);
@@ -73,6 +64,7 @@ static size_t make_request(unsigned short opcode,
                            const char *mode,
                            size_t blocksize,
                            int windowsize,
+                           off_t tsize,
                            struct tftphdr *out)
 {
     char *cp, buf[16];
@@ -114,6 +106,17 @@ static size_t make_request(unsigned short opcode,
         cp += len;
     }
 
+    {
+        len = strlen("tsize") + 1;
+        memcpy(cp, "tsize", len);
+        cp += len;
+        if (snprintf(buf, 16, "%llu", tsize) < 0)
+            die("out of memory");
+        len = strlen(buf) + 1;
+        memcpy(cp, buf, len);
+        cp += len;
+    }
+
     return (cp - (char *)out);
 }
 
@@ -123,13 +126,14 @@ static void send_request(int sock,
                          const char *name,
                          const char *mode,
                          size_t blocksize,
-                         unsigned windowsize)
+                         unsigned windowsize,
+                         off_t tsize)
 {
     struct tftphdr *out;
     size_t size;
 
     out = (struct tftphdr *)pktbuf;
-    size = make_request(request, name, mode, blocksize, windowsize, out);
+    size = make_request(request, name, mode, blocksize, windowsize, tsize, out);
 
     if (sendto(sock, out, size, 0, &to->sa, SOCKLEN(to)) != (unsigned)size)
         die("send_request: sendto: %m");
@@ -159,12 +163,24 @@ static int wait_for_oack(int sock, union sock_addr *from, char **options, int *o
     return 1;
 }
 
+static off_t get_tsize(int fd) {
+    struct stat stbuf = {};
+    off_t tsize = 0;
+    if (fstat(fd, &stbuf) >= 0) {
+        tsize = stbuf.st_size;
+    } else {
+        perror("fstat()");
+    }
+
+    return tsize;
+} 
+
 /*
  * Send the requested file.
  */
 void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
 {
-    union sock_addr server = peeraddr;
+    union sock_addr server = g_peeraddr;
     unsigned long amount = 0;
     size_t blocksize = g_blocksize;
     char *options;
@@ -172,12 +188,14 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
     int retries;
     FILE *fp;
     int n, r;
+    off_t tsize = get_tsize(fd);  // TODO only useable for mode == "octet" ! CK
 
-    set_verbose(trace_opt + verbose);
+    set_verbose(g_trace_opt + g_verbose);
 
     startclock();
-    send_request(f, &server, WRQ, name, mode, blocksize, windowsize);
+    send_request(g_s, &server, WRQ, name, mode, blocksize, windowsize, tsize);
 
+#if 0
     /* If no windowsize was specified on the command line,
      * don't bother with options.
      * When blocksize is supported, this should actually only be called
@@ -185,10 +203,11 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
      */
     if ((windowsize < 0) && (blocksize == SEGSIZE))
         goto no_options;
+#endif
 
     retries = RETRIES;
     do {
-        r = wait_for_oack(f, &server, &options, &optlen);
+        r = wait_for_oack(g_s, &server, &options, &optlen);
         if (r < 0) {
             return;
         }
@@ -219,9 +238,16 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
                     if (bs != blocksize)
                         printf("client: server negotiated different blocksize: %ld\n", bs);
                     /* FIXME Assumes bs is valid, it probably shouldn't. */
-                    /* if ((bs >= 8) && (bs <= MAX_SEGSIZE)) */
+                    /* if ((bs >= SEGSIZE) && (bs <= MAX_SEGSIZE)) */
                     blocksize = bs;
                     got_bs = 1;
+                }
+
+                if (str_equal(opt, "tsize")) {
+                    off_t ts = strtoumax(val, NULL, 10);
+                    if (ts != tsize)
+                        printf("client: server negotiated tsize: %llu\n", ts);
+                    tsize = ts;
                 }
 
                 n += strlen(val) + 1;
@@ -242,13 +268,13 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
     if (retries <= 0)
         timed_out();
 
-no_options:
+//XXX no_options:
     if (windowsize < 0) {
         struct tftphdr *tp = (struct tftphdr *)pktbuf;
 
         retries = RETRIES;
         do {
-            r = recvfrom_with_timeout(f, pktbuf, PKTSIZE, &server, TIMEOUT);
+            r = recvfrom_with_timeout(g_s, pktbuf, sizeof(pktbuf), &server, TIMEOUT);
             if (r == 0) {
                 /* Timed out. */
                 continue;
@@ -263,22 +289,22 @@ no_options:
             timed_out();
     }
     fp = fdopen(fd, "r");
-    r = sender(f, &server, blocksize, windowsize, TIMEOUT, 0, fp, &amount);
+    r = sender(g_s, &server, blocksize, windowsize, TIMEOUT, 0, fp, &amount);
     if (r < 0)
         exit(1);
 
     stopclock();
     if (amount > 0)
         printstats("Sent", amount);
+    fclose(fp);
 }
-
 
 /*
  * Receive a file.
  */
 void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
 {
-    union sock_addr server = peeraddr;
+    union sock_addr server = g_peeraddr;
     unsigned long amount = 0;
     size_t blocksize = g_blocksize;
     char *options, error[ERROR_MAXLEN];
@@ -286,12 +312,14 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
     int retries;
     FILE *fp;
     int n, r;
+    off_t tsize = 0;
 
-    set_verbose(trace_opt + verbose);
+    set_verbose(g_trace_opt + g_verbose);
 
     startclock();
+    send_request(g_s, &server, RRQ, name, mode, blocksize, windowsize, tsize);
 
-    send_request(f, &server, RRQ, name, mode, blocksize, windowsize);
+#if 0
     /* If no windowsize was specified on the command line,
      * don't bother with options.
      * When blocksize is supported, this should actually only be called
@@ -299,10 +327,11 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
      */
     if ((windowsize < 0) && (blocksize == SEGSIZE))
         goto no_options;
+#endif
 
     retries = RETRIES;
     do {
-        r = wait_for_oack(f, &server, &options, &optlen);
+        r = wait_for_oack(g_s, &server, &options, &optlen);
         if (r < 0) {
             return;
         }
@@ -333,10 +362,18 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
                     if (bs != blocksize)
                         printf("client: server negotiated different blocksize: %ld\n", bs);
                     /* FIXME Assumes bs is valid, it probably shouldn't. */
-                    /* if ((bs >= 8) && (bs <= MAX_SEGSIZE)) */
+                    /* if ((bs >= SEGSIZE) && (bs <= MAX_SEGSIZE)) */
                     blocksize = bs;
                     got_bs = 1;
                 }
+
+                if (str_equal(opt, "tsize")) {
+                    off_t ts = strtoumax(val, NULL, 10);
+                    if (ts != tsize)
+                        printf("client: server negotiated tsize: %llu\n", ts);
+                    tsize = ts;
+                }
+
                 n += strlen(val) + 1;
             }
 
@@ -354,11 +391,11 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
     if (retries <= 0)
         timed_out();
 
-    send_ack(f, &server, 0);
+    send_ack(g_s, &server, 0);
 
-no_options:
+//XXX no_options:
     fp = fdopen(fd, "w");
-    r = receiver(f, &server, blocksize, windowsize, TIMEOUT, fp, &amount, error);
+    r = receiver(g_s, &server, blocksize, windowsize, TIMEOUT, fp, &amount, error);
     if (r < 0) {
         fprintf(stderr, "%s\n", error);
         exit(1);
@@ -390,7 +427,7 @@ static void printstats(const char *direction, unsigned long amount)
 
     delta = (tstop.tv_sec + (tstop.tv_usec / 1000000.0)) -
         (tstart.tv_sec + (tstart.tv_usec / 1000000.0));
-    if (verbose) {
+    if (g_verbose) {
         printf("%s %lu bytes in %.1f seconds\n", direction, amount, delta);
         /* TODO: Change the statistics in a separate patch (bits???)! */
         printf(" [%.0f bit/s]\n", (amount * 8.) / delta);

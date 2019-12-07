@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 1983, 1993
- *	The Regents of the University of California.  All rights reserved.
+ *      The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -12,8 +12,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -49,8 +49,8 @@
 
 #include "extern.h"
 
-#define	RTIMEOUT	5       /* secs between rexmt's */
-#define	LBUFLEN		200     /* size of input buffer */
+#define RTIMEOUT        5       /* secs between rexmt's */
+#define LBUFLEN         200     /* size of input buffer */
 
 struct modes {
     const char *m_name;
@@ -105,6 +105,7 @@ int portrange = 0;
 unsigned int portrange_from = 0;
 unsigned int portrange_to = 0;
 int windowsize = -1;
+size_t g_blocksize = SEGSIZE;
 
 void get(int, char **);
 void help(int, char **);
@@ -196,11 +197,11 @@ static void usage(int errcode)
 {
     fprintf(stderr,
 #ifdef HAVE_IPV6
-            "Usage: %s [-4][-6][-v][-V][-l][-m mode][-w size] [-R port:port] "
-			"[host [port]] [-c command]\n",
+            "Usage: %s [-4][-6][-v][-V][-l][-m mode][-w size][-b blocksize] [-R port:port] "
+                        "[host [port]] [-c command]\n",
 #else
-            "Usage: %s [-v][-V][-l][-m mode][-w size] [-R port:port] "
-			"[host [port]] [-c command]\n",
+            "Usage: %s [-v][-V][-l][-m mode][-w size][-b blocksize] [-R port:port] "
+                        "[host [port]] [-c command]\n",
 #endif
             program);
     exit(errcode);
@@ -286,6 +287,15 @@ int main(int argc, char *argv[])
                     windowsize = atoi(argv[arg]);
                     if (windowsize <= 0 || windowsize > 64) {
                         fprintf(stderr, "Bad window size: %s (1-64)\n", argv[arg]);
+                        exit(EX_USAGE);
+                    }
+                    break;
+                case 'b':
+                    if (++arg >= argc)
+                        usage(EX_USAGE);
+                    g_blocksize = atoi(argv[arg]);
+                    if (g_blocksize < 8 || g_blocksize > 65464) {
+                        fprintf(stderr, "Bad block size: %s (8-65464)\n", argv[arg]);
                         exit(EX_USAGE);
                     }
                     break;

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 1983, 1993
- *	The Regents of the University of California.  All rights reserved.
+ *      The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -12,8 +12,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -31,17 +31,20 @@
  * SUCH DAMAGE.
  */
 
-#include <poll.h>
-#include <stdarg.h>
-#include "common/tftpsubs.h"
 #include "extern.h"
+#include "../common/tftpsubs.h"
+
+#include <stdarg.h>
+#include <poll.h>
 
 /* TODO: This 'peeraddr' global should be removed. */
 extern union sock_addr peeraddr; /* filled in by main */
+/* TODO: This 'g_blocksize' global should be removed. */
+extern size_t g_blocksize;       /* filled in by main */
+
 extern int f;                    /* the opened socket */
 extern int trace_opt;
 extern int verbose;
-/* TODO: Adjust when blocksize is implemented. */
 static char pktbuf[PKTSIZE];
 
 static void printstats(const char *, unsigned long);
@@ -89,18 +92,16 @@ static size_t make_request(unsigned short opcode,
 
     /* Don't include options with default values. */
 
-    /* TODO: TBI in a separate patch. */
-    (void) blocksize;
-    /*if (blocksize != SEGSIZE) {
+    if (blocksize != SEGSIZE) {
         len = strlen("blksize") + 1;
         memcpy(cp, "blksize", len);
         cp += len;
-        if (snprintf(buf, 16, "%u", blocksize) < 0)
+        if (snprintf(buf, 16, "%lu", blocksize) < 0)
             die("out of memory");
         len = strlen(buf) + 1;
         memcpy(cp, buf, len);
         cp += len;
-    }*/
+    }
 
     if (windowsize > 0) {
         len = strlen("windowsize") + 1;
@@ -165,7 +166,7 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
 {
     union sock_addr server = peeraddr;
     unsigned long amount = 0;
-    size_t blocksize = SEGSIZE;
+    size_t blocksize = g_blocksize;
     char *options;
     int optlen;
     int retries;
@@ -180,10 +181,11 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
     /* If no windowsize was specified on the command line,
      * don't bother with options.
      * When blocksize is supported, this should actually only be called
-     * if no options were sent in the RRQ.
+     * if no options were sent in the WRQ.
      */
-    if (windowsize < 0)
+    if ((windowsize < 0) && (blocksize == SEGSIZE))
         goto no_options;
+
     retries = RETRIES;
     do {
         r = wait_for_oack(f, &server, &options, &optlen);
@@ -196,20 +198,32 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
         if (r != 0) {
             char *opt, *val;
             int got_ws = 0;
-            int v;
+            int got_bs = 0;
 
             while (n < optlen) {
                 opt = options + n;
                 n += strlen(opt) + 1;
                 val = options + n;
+
                 if (str_equal(opt, "windowsize") && windowsize != 1) {
-                    v = atoi(val);
+                    int v = atoi(val);  // TODO Use strtoul() or strtoumax()
                     if (v != windowsize)
                         printf("client: server negotiated different windowsize: %d", v);
-                    /* Assumes v > 0, it probably shouldn't. */
+                    /* FIXME Assumes v > 0, it probably shouldn't. */
                     windowsize = v;
                     got_ws = 1;
                 }
+
+                if (str_equal(opt, "blocksize") && blocksize != 1) {
+                    size_t bs = strtoul(val, NULL, 10);  // TBD Use strtoumax()
+                    if (bs != blocksize)
+                        printf("client: server negotiated different blocksize: %ld", bs);
+                    /* FIXME Assumes bs is valid, it probably shouldn't. */
+                    /* if ((bs >= 8) && (bs <= MAX_SEGSIZE)) */
+                    blocksize = bs;
+                    got_bs = 1;
+                }
+
                 n += strlen(val) + 1;
             }
 
@@ -217,6 +231,12 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
                 windowsize = 1;
                 printf("client: server didn't negotiate windowsize, continuing with windowsize=1");
             }
+
+            if (got_bs == 0 && blocksize != SEGSIZE) {
+                blocksize = SEGSIZE;
+                printf("client: server didn't negotiate blocksize, continuing with blocksize=512");
+            }
+
         }
     } while (r == 0 && --retries > 0);
     if (retries <= 0)
@@ -260,7 +280,7 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
 {
     union sock_addr server = peeraddr;
     unsigned long amount = 0;
-    size_t blocksize = SEGSIZE;
+    size_t blocksize = g_blocksize;
     char *options, error[ERROR_MAXLEN];
     int optlen;
     int retries;
@@ -277,8 +297,9 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
      * When blocksize is supported, this should actually only be called
      * if no options were sent in the RRQ.
      */
-    if (windowsize < 0)
+    if ((windowsize < 0) && (blocksize == SEGSIZE))
         goto no_options;
+
     retries = RETRIES;
     do {
         r = wait_for_oack(f, &server, &options, &optlen);
@@ -291,19 +312,30 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
         if (r != 0) {
             char *opt, *val;
             int got_ws = 0;
-            int v;
+            int got_bs = 0;
 
             while (n < optlen) {
                 opt = options + n;
                 n += strlen(opt) + 1;
                 val = options + n;
+
                 if (str_equal(opt, "windowsize") && windowsize != 1) {
-                    v = atoi(val);
+                    int v = atoi(val);  // TODO Use strtoul(() or strtoumax()
                     if (v != windowsize)
                         printf("client: server negotiated different windowsize: %d", v);
-                    /* Assumes v > 0, it probably shouldn't. */
+                    /* FIXME Assumes v > 0, it probably shouldn't. */
                     windowsize = v;
                     got_ws = 1;
+                }
+
+                if (str_equal(opt, "blocksize") && blocksize != 1) {
+                    size_t bs = strtoul(val, NULL, 10);  // TBD Use strtoumax()
+                    if (bs != blocksize)
+                        printf("client: server negotiated different blocksize: %ld", bs);
+                    /* FIXME Assumes bs is valid, it probably shouldn't. */
+                    /* if ((bs >= 8) && (bs <= MAX_SEGSIZE)) */
+                    blocksize = bs;
+                    got_bs = 1;
                 }
                 n += strlen(val) + 1;
             }
@@ -311,6 +343,11 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
             if (got_ws == 0 && windowsize != 1) {
                 windowsize = 1;
                 printf("client: server didn't negotiate windowsize, continuing with windowsize=1");
+            }
+
+            if (got_bs == 0 && blocksize != SEGSIZE) {
+                blocksize = SEGSIZE;
+                printf("client: server didn't negotiate blocksize, continuing with blocksize=512");
             }
         }
     } while (r == 0 && --retries > 0);

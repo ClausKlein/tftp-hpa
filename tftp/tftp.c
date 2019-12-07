@@ -52,7 +52,7 @@ static void startclock(void);
 static void stopclock(void);
 static void timed_out(void)
 {
-    printf("client: timed out");
+    printf("client: timed out\n");
     exit(1);
 }
 
@@ -208,7 +208,7 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
                 if (str_equal(opt, "windowsize") && windowsize != 1) {
                     int v = atoi(val);  // TODO Use strtoul() or strtoumax()
                     if (v != windowsize)
-                        printf("client: server negotiated different windowsize: %d", v);
+                        printf("client: server negotiated different windowsize: %d\n", v);
                     /* FIXME Assumes v > 0, it probably shouldn't. */
                     windowsize = v;
                     got_ws = 1;
@@ -217,7 +217,7 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
                 if (str_equal(opt, "blocksize") && blocksize != 1) {
                     size_t bs = strtoul(val, NULL, 10);  // TBD Use strtoumax()
                     if (bs != blocksize)
-                        printf("client: server negotiated different blocksize: %ld", bs);
+                        printf("client: server negotiated different blocksize: %ld\n", bs);
                     /* FIXME Assumes bs is valid, it probably shouldn't. */
                     /* if ((bs >= 8) && (bs <= MAX_SEGSIZE)) */
                     blocksize = bs;
@@ -227,14 +227,14 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
                 n += strlen(val) + 1;
             }
 
-            if (got_ws == 0 && windowsize != 1) {
+            if (got_ws == 1 && windowsize < 1) {
                 windowsize = 1;
-                printf("client: server didn't negotiate windowsize, continuing with windowsize=1");
+                printf("client: server didn't negotiate windowsize, continuing with windowsize=1\n");
             }
 
-            if (got_bs == 0 && blocksize != SEGSIZE) {
+            if (got_bs == 1 && blocksize < SEGSIZE) {
                 blocksize = SEGSIZE;
-                printf("client: server didn't negotiate blocksize, continuing with blocksize=512");
+                printf("client: server didn't negotiate blocksize, continuing with blocksize=512\n");
             }
 
         }
@@ -322,7 +322,7 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
                 if (str_equal(opt, "windowsize") && windowsize != 1) {
                     int v = atoi(val);  // TODO Use strtoul(() or strtoumax()
                     if (v != windowsize)
-                        printf("client: server negotiated different windowsize: %d", v);
+                        printf("client: server negotiated different windowsize: %d\n", v);
                     /* FIXME Assumes v > 0, it probably shouldn't. */
                     windowsize = v;
                     got_ws = 1;
@@ -331,7 +331,7 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
                 if (str_equal(opt, "blocksize") && blocksize != 1) {
                     size_t bs = strtoul(val, NULL, 10);  // TBD Use strtoumax()
                     if (bs != blocksize)
-                        printf("client: server negotiated different blocksize: %ld", bs);
+                        printf("client: server negotiated different blocksize: %ld\n", bs);
                     /* FIXME Assumes bs is valid, it probably shouldn't. */
                     /* if ((bs >= 8) && (bs <= MAX_SEGSIZE)) */
                     blocksize = bs;
@@ -340,14 +340,14 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
                 n += strlen(val) + 1;
             }
 
-            if (got_ws == 0 && windowsize != 1) {
+            if (got_ws == 1 && windowsize < 1) {
                 windowsize = 1;
-                printf("client: server didn't negotiate windowsize, continuing with windowsize=1");
+                printf("client: server didn't negotiate windowsize, continuing with windowsize=1\n");
             }
 
-            if (got_bs == 0 && blocksize != SEGSIZE) {
+            if (got_bs == 1 && blocksize < SEGSIZE) {
                 blocksize = SEGSIZE;
-                printf("client: server didn't negotiate blocksize, continuing with blocksize=512");
+                printf("client: server didn't negotiate blocksize, continuing with blocksize=512\n");
             }
         }
     } while (r == 0 && --retries > 0);
@@ -391,9 +391,9 @@ static void printstats(const char *direction, unsigned long amount)
     delta = (tstop.tv_sec + (tstop.tv_usec / 1000000.0)) -
         (tstart.tv_sec + (tstart.tv_usec / 1000000.0));
     if (verbose) {
-        printf("%s %lu bytes in %.1f seconds", direction, amount, delta);
+        printf("%s %lu bytes in %.1f seconds\n", direction, amount, delta);
         /* TODO: Change the statistics in a separate patch (bits???)! */
-        printf(" [%.0f bit/s]", (amount * 8.) / delta);
+        printf(" [%.0f bit/s]\n", (amount * 8.) / delta);
         putchar('\n');
     }
 }

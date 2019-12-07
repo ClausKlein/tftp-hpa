@@ -197,10 +197,10 @@ static void usage(int errcode)
 {
     fprintf(stderr,
 #ifdef HAVE_IPV6
-            "Usage: %s [-4][-6][-v][-V][-l][-m mode][-w size][-b blocksize] [-R port:port] "
+            "Usage: %s [-4][-6][-v][-V][-l][-m mode][-w size][-B blocksize] [-R port:port] "
                         "[host [port]] [-c command]\n",
 #else
-            "Usage: %s [-v][-V][-l][-m mode][-w size][-b blocksize] [-R port:port] "
+            "Usage: %s [-v][-V][-l][-m mode][-w size][-B blocksize] [-R port:port] "
                         "[host [port]] [-c command]\n",
 #endif
             program);
@@ -290,7 +290,7 @@ int main(int argc, char *argv[])
                         exit(EX_USAGE);
                     }
                     break;
-                case 'b':
+                case 'B':
                     if (++arg >= argc)
                         usage(EX_USAGE);
                     g_blocksize = atoi(argv[arg]);

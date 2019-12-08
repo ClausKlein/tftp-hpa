@@ -1,1 +1,76 @@
-tftp -m binay localhost -c get tftpd.bin delivers tsize==0
+#=====================================
+max data segment size seems to be 9212!
+9212 + 4 0= 9K
+#=====================================
+
+clausklein$ time tftp/tftp -m binary -v -B 1432 -w 1 localhost -c get tftp.bin
+Connected to localhost (::1), port 69
+getting from localhost:tftp.bin to tftp.bin [octet]
+option request tsize:0
+client: server negotiated tsize: 46528
+Received 46528 bytes in 0.1 seconds
+ [3140145 bit/s]
+
+
+real	0m0.140s
+user	0m0.003s
+sys	0m0.009s
+#####################################
+
+clausklein$ time tftp/tftp -m binary -v -B 1432 -w 1 localhost -c get tftp.bin
+Connected to localhost (::1), port 69
+getting from localhost:tftp.bin to tftp.bin [octet]
+option request tsize:0
+client: server negotiated tsize: 46528
+Received 46528 bytes in 0.1 seconds
+ [3133697 bit/s]
+
+
+real	0m0.140s
+user	0m0.003s
+sys	0m0.008s
+#####################################
+
+clausklein$ time tftp/tftp -m binary -v -B 8184 -w 1 localhost -c get tftp.bin
+Connected to localhost (::1), port 69
+getting from localhost:tftp.bin to tftp.bin [octet]
+option request tsize:0
+client: server negotiated tsize: 46528
+Received 46528 bytes in 0.1 seconds
+ [3107952 bit/s]
+
+
+real	0m0.142s
+user	0m0.003s
+sys	0m0.007s
+clausklein$
+
+#####################################
+clausklein$ time tftp/tftp -m binary -v -B 9212 -w 1 localhost -c get tftp.bin
+Connected to localhost (::1), port 69
+getting from localhost:tftp.bin to tftp.bin [octet]
+option request tsize:0
+client: server negotiated tsize: 46528
+Received 46528 bytes in 0.1 seconds
+ [3307222 bit/s]
+
+
+real	0m0.134s
+user	0m0.003s
+sys	0m0.008s
+clausklein$
+
+#####################################
+clausklein$ time tftp/tftp -m binary -v -B 16374 -w 1 localhost -c get tftp.bin
+Connected to localhost (::1), port 69
+getting from localhost:tftp.bin to tftp.bin [octet]
+option request tsize:0
+client: server negotiated tsize: 46528
+???d? <<<<<<<<<<<<<<<<<< FIXME!
+
+real	0m5.041s  <<<timeout! CK
+user	0m0.003s
+sys	0m0.008s
+clausklein$ ls -lrta *.bin
+-rw-r--r-- 1 clausklein staff 0  8. Dez 13:33 tftp.bin
+

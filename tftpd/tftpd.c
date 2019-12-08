@@ -933,10 +933,10 @@ int main(int argc, char **argv)
             exit(EX_OSERR);
         }
 #ifdef __CYGWIN__
-                                if (chdir("/") < 0) {                   /* Cygwin chroot() bug workaround */
-                                        syslog(LOG_ERR, "chroot: %m");
-                                        exit(EX_OSERR);
-                                }
+        if (chdir("/") < 0) {   /* Cygwin chroot() bug workaround */
+            syslog(LOG_ERR, "chroot: %m");
+            exit(EX_OSERR);
+        }
 #endif
     }
 #ifdef HAVE_SETREGID
@@ -1190,12 +1190,13 @@ static int set_tsize(uintmax_t *vp)
     uintmax_t sz = *vp;
 
     if (!tsize_ok) {
-        syslog(LOG_WARNING, "tftpd: tsize_ok == false!\n");
+        syslog(LOG_WARNING, "tftpd: mode netascii: tsize_ok == false!\n");
         return 0;
     }
 
+    syslog(LOG_NOTICE, "tftpd: mode octet: tsize == %llu!\n", tsize);
     if (sz == 0)
-        sz = tsize;
+        sz = tsize; // RRQ, tsize from validate_access()
     else
         tsize = sz; // NOTE: in case of WRQ! CK
 
@@ -1396,7 +1397,7 @@ static FILE *file;
 static int validate_access(char *filename, int mode,
                            const struct formats *pf, const char **errmsg)
 {
-    struct stat stbuf;
+    struct stat stbuf = {};
     int i, len;
     int fd, wmode, rmode;
     char *cp;

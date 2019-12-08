@@ -67,6 +67,7 @@ int str_equal(const char *s1, const char *s2);
 void set_verbose(int v);
 
 int format_error(struct tftphdr *tp, char *error);
+void die(const char *fmt, ...);
 void die_on_error(struct tftphdr *tp);
 void send_error(int sockfd, union sock_addr *to, const char *msg);
 void send_ack(int sockfd, union sock_addr *to, unsigned short block);

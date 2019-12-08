@@ -47,17 +47,20 @@ static void timed_out(void)
     exit(1);
 }
 
+// TODO: see common.c too! CK
+#if 0
 static void die(const char *fmt, ...)
 {
     va_list ap;
 
     va_start(ap, fmt);
-    fprintf(stderr, "fatal: client: ");
+    fprintf(stderr, "Fatal: client: ");
     vfprintf(stderr, fmt, ap);
     printf("\n");
     va_end(ap);
     exit(1);
 }
+#endif
 
 static size_t make_request(unsigned short opcode,
                            const char *name,
@@ -112,6 +115,7 @@ static size_t make_request(unsigned short opcode,
         cp += len;
         if (snprintf(buf, 16, "%llu", tsize) < 0)
             die("out of memory");
+        printf("option request tsize:%s\n", buf);
         len = strlen(buf) + 1;
         memcpy(cp, buf, len);
         cp += len;
@@ -136,7 +140,7 @@ static void send_request(int sock,
     size = make_request(request, name, mode, blocksize, windowsize, tsize, out);
 
     if (sendto(sock, out, size, 0, &to->sa, SOCKLEN(to)) != (unsigned)size)
-        die("send_request: sendto: %m");
+        die("send_request: sendto: %s", strerror(errno));
 }
 
 static int wait_for_oack(int sock, union sock_addr *from, char **options, int *optlen)

@@ -14,13 +14,12 @@
  * Perform regular-expression based filename remapping.
  */
 
-#include "config.h"             /* Must be included first! */
+#include "tftpd.h"
+#include "remap.h"
+
 #include <ctype.h>
 #include <syslog.h>
 #include <regex.h>
-
-#include "tftpd.h"
-#include "remap.h"
 
 #define DEADMAN_MAX_STEPS	1024    /* Timeout after this many steps */
 #define MAXLINE			16384   /* Truncate a line at this many bytes */

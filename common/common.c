@@ -31,22 +31,23 @@
  * SUCH DAMAGE.
  */
 
+#include "common.h"
+
 #include <poll.h>
 #include <stdarg.h>
 #include <syslog.h>
-#include "common.h"
 
 static char *pktbuf;
 static int verbose;
 
 const int SYNC_TIMEOUT = 50; /* ms */
 
-static void die(const char *fmt, ...)
+void die(const char *fmt, ...)
 {
     va_list ap;
 
     va_start(ap, fmt);
-    fprintf(stderr, "fatal: ");
+    fprintf(stderr, "Fatal: ");
     vfprintf(stderr, fmt, ap);
     printf("\n");
     va_end(ap);
@@ -87,10 +88,10 @@ void send_error(int sockfd, union sock_addr *to, const char *msg)
 
     if (to) {
         if (sendto(sockfd, out, len, 0, &to->sa, SOCKLEN(to)) != len)
-            die("send_error: sendto: %s", strerror(-errno));
+            die("send_error: sendto: %s", strerror(errno));
     } else {
         if (send(sockfd, out, len, 0) != len)
-            die("send_error: send: %s", strerror(-errno));
+            die("send_error: send: %s", strerror(errno));
     }
 }
 
@@ -102,10 +103,10 @@ static void _send_ack(int sockfd, union sock_addr *to, unsigned short block, int
 
     if (to) {
         if (sendto(sockfd, &out, 4, 0, &to->sa, SOCKLEN(to)) != 4 && check_errors)
-            die("send_ack: sendto: %m");
+            die("send_ack: sendto: %s", strerror(errno));
     } else {
         if (send(sockfd, &out, 4, 0) != 4 && check_errors)
-            die("send_ack: send: %m");
+            die("send_ack: send: %s", strerror(errno));
     }
 }
 
@@ -116,7 +117,7 @@ void send_ack(int sockfd, union sock_addr *to, unsigned short block)
 
 
 static size_t read_data(FILE *fp,
-                        int blocksize,
+                        size_t blocksize,
                         unsigned short block,
                         int seek,
                         struct tftphdr *out)
@@ -180,7 +181,7 @@ void set_verbose(int v)
     verbose = v;
 }
 
-int recv_with_timeout(int s, void *in, int len, int timeout)
+int recv_with_timeout(int s, void *in, size_t len, int timeout)
 {
     return recvfrom_flags_with_timeout(s, in, len, NULL, timeout, 0);
 }
@@ -214,11 +215,11 @@ int recvfrom_flags_with_timeout(int s,
         if (from) {
             r = recvfrom(s, in, len, flags, &from->sa, &fromlen);
             if (r < 0)
-                die("recvfrom_flags_with_timeout: recvfrom: %m");
+                die("recvfrom_flags_with_timeout: recvfrom: %s", strerror(errno));
         } else {
             r = recv(s, in, len, flags);
             if (r < 0)
-                die("recvfrom_flags_with_timeout: recv: %m");
+                die("recvfrom_flags_with_timeout: recv: %s", strerror(errno));
         }
     }
 
@@ -227,7 +228,7 @@ int recvfrom_flags_with_timeout(int s,
 
 int receiver(int sockfd,
              union sock_addr *server,
-             int blocksize,
+             size_t blocksize,
              int windowsize,
              int timeout,
              FILE *fp,
@@ -318,7 +319,7 @@ abort:
 
 int sender(int sockfd,
            union sock_addr *server,
-           int blocksize,
+           size_t blocksize,
            int windowsize,
            int timeout,
            int rollover,
@@ -335,7 +336,7 @@ int sender(int sockfd,
     int seek = 0;
     int retries;
     size_t size;
-    int done = 0;
+    size_t done = 0;
     int n, r = 0;
 
     pktbuf = calloc(pktsize, 1);
@@ -358,7 +359,7 @@ int sender(int sockfd,
             n = sendto(sockfd, tp, size + 4, 0, &server->sa, SOCKLEN(server));
         else
             n = send(sockfd, tp, size + 4, 0);
-        if (n != size + 4) {
+        if (n != (int)(size + 4)) {
             syslog(LOG_WARNING, "tftpd: send: %m");
             r = E_SYSTEM_ERROR;
             goto abort;

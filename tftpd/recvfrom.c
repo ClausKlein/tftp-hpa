@@ -17,9 +17,9 @@
  *
  */
 
-#include "config.h"             /* Must be included first! */
-#include "common/tftpsubs.h"
 #include "recvfrom.h"
+#include "../common/tftpsubs.h"
+
 #ifdef HAVE_MACHINE_PARAM_H
 #include <machine/param.h>      /* Needed on some versions of FreeBSD */
 #endif

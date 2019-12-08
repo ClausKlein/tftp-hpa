@@ -2,6 +2,7 @@
 /aconfig.h
 /aconfig.h.in
 /autom4te.cache
+/config.cache
 /config.log
 /config.status
 /configure
@@ -11,6 +12,7 @@
 *.1
 *.8
 *.a
+*.d
 *.o
 *~
 \#*

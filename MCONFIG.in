@@ -1,12 +1,12 @@
 ## -*- makefile -*- ------------------------------------------------------
-##   
+##
 ##   Copyright 2001-2007 H. Peter Anvin - All Rights Reserved
 ##
 ##   This program is free software available under the same license
 ##   as the "OpenBSD" operating system, distributed at
 ##   http://www.openbsd.org/.
 ##
-## ----------------------------------------------------------------------- 
+## -----------------------------------------------------------------------
 
 ##
 ## MCONFIG.in
@@ -15,7 +15,7 @@
 ##
 
 # Source and object root
-SRCROOT	    = @SRCROOT@
+SRCROOT     = @SRCROOT@
 OBJROOT     = @OBJROOT@
 
 # Prefixes
@@ -39,7 +39,7 @@ O = @OBJEXT@
 X = @EXEEXT@
 
 # Install into alternate root area, e.g. for package generation
-INSTALLROOT = 
+INSTALLROOT =
 
 # Link
 LN_S            = @LN_S@
@@ -51,7 +51,8 @@ INSTALL_DATA    = @INSTALL_DATA@
 
 # Compiler and compiler flags
 CC      = @CC@
-CFLAGS  = @CFLAGS@ -I$(SRCROOT)
+CPPFLAGS= @CPPFLAGS@ -MMD -MP ### -I$(SRCROOT)
+CFLAGS  = @CFLAGS@
 
 # Link flags
 LDFLAGS = @LDFLAGS@

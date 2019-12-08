@@ -14,8 +14,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -33,8 +33,10 @@
  * SUCH DAMAGE.
  */
 
-#include "config.h"             /* Must be included first */
 #include "tftpd.h"
+
+#include "recvfrom.h"
+#include "remap.h"
 
 /*
  * Trivial file transfer protocol server.
@@ -50,10 +52,6 @@
 #include <syslog.h>
 #include <poll.h>
 #include <stdarg.h>
-
-#include "common/tftpsubs.h"
-#include "recvfrom.h"
-#include "remap.h"
 
 #ifdef HAVE_SYS_FILIO_H
 #include <sys/filio.h>          /* Necessary for FIONBIO on Solaris */
@@ -79,7 +77,6 @@ static int peer;
 static uint16_t rollover_val = 0;
 static int windowsize = 1;
 
-#define	PKTSIZE	MAX_SEGSIZE+4
 static char buf[PKTSIZE];
 static char pktbuf[PKTSIZE];
 static unsigned int max_blksize = MAX_SEGSIZE;
@@ -178,12 +175,12 @@ static int lock_file(int fd, int lock_write)
   fl.l_type   = lock_write ? F_WRLCK : F_RDLCK;
   fl.l_whence = SEEK_SET;
   fl.l_start  = 0;
-  fl.l_len    = 0;		/* Whole file */
+  fl.l_len    = 0;              /* Whole file */
   return fcntl(fd, F_SETLK, &fl);
 #elif defined(HAVE_LOCK_SH_DEFINITION)
   return flock(fd, lock_write ? LOCK_EX|LOCK_NB : LOCK_SH|LOCK_NB);
 #else
-  return 0;			/* Hope & pray... */
+  return 0;                     /* Hope & pray... */
 #endif
 }
 
@@ -252,7 +249,7 @@ static int split_port(char **ap, char **pp)
 }
 
 enum long_only_options {
-    OPT_VERBOSITY	= 256,
+    OPT_VERBOSITY       = 256,
 };
 
 static struct option long_options[] = {
@@ -315,9 +312,10 @@ int main(int argc, char **argv)
 
     time_t my_time = 0;
     struct tm* p_tm;
-    char envtz[10];
+    char envtz[22];
     my_time = time(NULL);
     p_tm = localtime(&my_time);
+    // warning: ‘%+ld’ directive output may be truncated writing between 2 and 17 bytes into a region of size 6 [-Wformat-truncation=]
     snprintf(envtz, sizeof(envtz) - 1, "UTC%+ld", (p_tm->tm_gmtoff * -1)/3600);
     setenv("TZ", envtz, 0);
 
@@ -670,6 +668,7 @@ int main(int argc, char **argv)
         /* Daemonize this process */
         /* Note: when running in secure mode (-s), we must not chdir, since
            we are already in the proper directory. */
+        /* TODO: warning: 'daemon' is deprecated on OSX; Use posix_spawn APIs instead! CK */
         if (!nodaemon && daemon(secure, 0) < 0) {
             syslog(LOG_ERR, "cannot daemonize: %m");
             exit(EX_OSERR);
@@ -735,7 +734,7 @@ int main(int argc, char **argv)
             } else {
                 exit(0);
             }
-	}
+        }
 
         if (caught_sighup) {
             caught_sighup = 0;
@@ -841,10 +840,10 @@ int main(int argc, char **argv)
                        sizeof(bindaddr4.sin_addr));
 #ifdef HAVE_IPV6
             } else if ((from.sa.sa_family == AF_INET6) &&
-		       IN6_IS_ADDR_UNSPECIFIED((struct in6_addr *)
-					       SOCKADDR_P(&myaddr))) {
-		memcpy(SOCKADDR_P(&myaddr), &bindaddr6.sin6_addr,
-		       sizeof(bindaddr6.sin6_addr));
+                       IN6_IS_ADDR_UNSPECIFIED((struct in6_addr *)
+                                               SOCKADDR_P(&myaddr))) {
+                memcpy(SOCKADDR_P(&myaddr), &bindaddr6.sin6_addr,
+                       sizeof(bindaddr6.sin6_addr));
 #endif
             }
         }
@@ -934,10 +933,10 @@ int main(int argc, char **argv)
             exit(EX_OSERR);
         }
 #ifdef __CYGWIN__
-				if (chdir("/") < 0) {			/* Cygwin chroot() bug workaround */
-					syslog(LOG_ERR, "chroot: %m");
-					exit(EX_OSERR);
-				}
+        if (chdir("/") < 0) {   /* Cygwin chroot() bug workaround */
+            syslog(LOG_ERR, "chroot: %m");
+            exit(EX_OSERR);
+        }
 #endif
     }
 #ifdef HAVE_SETREGID
@@ -976,7 +975,7 @@ int main(int argc, char **argv)
     tp = (struct tftphdr *)buf;
     tp_opcode = ntohs(tp->th_opcode);
     if (tp_opcode == RRQ || tp_opcode == WRQ)
-	tftp(tp, n);
+        tftp(tp, n);
     exit(0);
 }
 
@@ -1050,11 +1049,11 @@ int tftp(struct tftphdr *tp, int size)
                 exit(0);
             }
             if (!(filename = (*pf->f_rewrite)
-		  (origfilename, tp_opcode, from.sa.sa_family, &errmsgptr))) {
+                  (origfilename, tp_opcode, from.sa.sa_family, &errmsgptr))) {
                 nak(EACCESS, errmsgptr);        /* File denied by mapping rule */
                 exit(0);
             }
-	    ecode =
+            ecode =
                 (*pf->f_validate) (filename, tp_opcode, pf, &errmsgptr);
 
             if (verbosity >= 1) {
@@ -1175,7 +1174,7 @@ static int set_rollover(uintmax_t *vp)
     uintmax_t ro = *vp;
 
     if (ro > 65535)
-	return 0;
+        return 0;
 
     rollover_val = (uint16_t)ro;
     return 1;
@@ -1190,11 +1189,16 @@ static int set_tsize(uintmax_t *vp)
 {
     uintmax_t sz = *vp;
 
-    if (!tsize_ok)
+    if (!tsize_ok) {
+        syslog(LOG_WARNING, "tftpd: mode netascii: tsize_ok == false!\n");
         return 0;
+    }
 
+    syslog(LOG_NOTICE, "tftpd: mode octet: tsize == %llu!\n", tsize);
     if (sz == 0)
-        sz = tsize;
+        sz = tsize; // RRQ, tsize from validate_access()
+    else
+        tsize = sz; // NOTE: in case of WRQ! CK
 
     *vp = sz;
     return 1;
@@ -1247,7 +1251,7 @@ static int set_windowsize(uintmax_t *vp)
  * Conservative calculation for the size of a buffer which can hold an
  * arbitrary integer
  */
-#define OPTBUFSIZE	(sizeof(uintmax_t) * CHAR_BIT / 3 + 3)
+#define OPTBUFSIZE      (sizeof(uintmax_t) * CHAR_BIT / 3 + 3)
 
 /*
  * Parse RFC2347 style options; we limit the arguments to positive
@@ -1271,26 +1275,27 @@ static void do_opt(const char *opt, const char *val, char **ap)
     errno = 0;
     v = strtoumax(val, &vend, 10);
     if (*vend || errno == ERANGE)
-	return;
+        return;
 
     for (po = options; po->o_opt; po++)
         if (!strcasecmp(po->o_opt, opt)) {
             if (po->o_fnc(&v)) {
-		optlen = strlen(opt);
-		retlen = sprintf(retbuf, "%"PRIuMAX, v);
+                optlen = strlen(opt);
+                retlen = sprintf(retbuf, "%"PRIuMAX, v);
 
                 if (p + optlen + retlen + 2 >= pktbuf + sizeof(pktbuf)) {
                     nak(EOPTNEG, "Insufficient space for options");
                     exit(0);
                 }
 
-		memcpy(p, opt, optlen+1);
-		p += optlen+1;
-		memcpy(p, retbuf, retlen+1);
-		p += retlen+1;
+                memcpy(p, opt, optlen+1);
+                p += optlen+1;
+                memcpy(p, retbuf, retlen+1);
+                p += retlen+1;
             } else {
-                nak(EOPTNEG, "Unsupported option(s) requested");
-                exit(0);
+                syslog(LOG_WARNING, "tftpd: Unsupported option(%s:%s) requested", opt, val);
+                //NO! nak(EOPTNEG, "Unsupported option(s) requested");
+                //NO! exit(0); CK
             }
             break;
         }
@@ -1355,12 +1360,12 @@ static int rewrite_macros(char macro, char *output)
  * Modify the filename, if applicable.  If it returns NULL, deny the access.
  */
 static char *rewrite_access(char *filename, int mode, int af,
-			     const char **msg)
+                             const char **msg)
 {
     if (rewrite_rules) {
         char *newname =
             rewrite_string(filename, rewrite_rules,
-			   mode != RRQ ? 'P' : 'G', af,
+                           mode != RRQ ? 'P' : 'G', af,
                            rewrite_macros, msg);
         filename = newname;
     }
@@ -1390,9 +1395,9 @@ static FILE *file;
  * given as we have no login directory.
  */
 static int validate_access(char *filename, int mode,
-			   const struct formats *pf, const char **errmsg)
+                           const struct formats *pf, const char **errmsg)
 {
-    struct stat stbuf;
+    struct stat stbuf = {};
     int i, len;
     int fd, wmode, rmode;
     char *cp;
@@ -1438,7 +1443,7 @@ static int validate_access(char *filename, int mode,
     rmode = O_RDONLY | (pf->f_convert ? O_TEXT : O_BINARY);
 
 #ifndef HAVE_FTRUNCATE
-    wmode |= O_TRUNC;		/* This really sucks on a dupe */
+    wmode |= O_TRUNC;           /* This really sucks on a dupe */
 #endif
 
     fd = open(filename, mode == RRQ ? rmode : wmode, 0666);
@@ -1461,7 +1466,7 @@ static int validate_access(char *filename, int mode,
 
     /* A duplicate RRQ or (worse!) WRQ packet could really cause havoc... */
     if (lock_file(fd, mode != RRQ))
-	exit(0);
+        exit(0);
 
     if (mode == RRQ) {
         if (!unixperms && (stbuf.st_mode & (S_IREAD >> 6)) == 0) {
@@ -1480,12 +1485,13 @@ static int validate_access(char *filename, int mode,
         }
 
 #ifdef HAVE_FTRUNCATE
-	/* We didn't get to truncate the file at open() time */
-	if (ftruncate(fd, (off_t) 0)) {
-	  *errmsg = "Cannot reset file size";
-	  return (EACCESS);
-	}
+        /* We didn't get to truncate the file at open() time */
+        if (ftruncate(fd, (off_t) 0)) {
+          *errmsg = "Cannot reset file size";
+          return (EACCESS);
+        }
 #endif
+
         tsize = 0;
         tsize_ok = 1;
     }

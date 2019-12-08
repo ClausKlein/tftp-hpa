@@ -83,7 +83,10 @@ Default to verbose mode.
 Print the version number and configuration to standard output, then
 exit gracefully.
 .TP
-.B \-w\fP \fIwindow-size\fP
+.B \-B\fP \fIblocksize\fP
+Set the "blocksize" TFTP option (RFC 2348) to the specified value.
+.TP
+.B \-w\fP \fIwindowsize\fP
 Set the "windowsize" TFTP option (RFC 7440) to the specified value.
 .SH COMMANDS
 Once

@@ -12,8 +12,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -34,11 +34,12 @@
 #ifndef _COMMON_H
 #define _COMMON_H
 
+#include "../config.h"
+
 #include <netinet/in.h>
-#include "config.h"
 
 #define TIMEOUT 1000 /* ms */
-#define RETRIES 6
+#define RETRIES 5
 
 #define E_TIMED_OUT -1
 #define E_RECEIVED_ERROR -2
@@ -66,10 +67,11 @@ int str_equal(const char *s1, const char *s2);
 void set_verbose(int v);
 
 int format_error(struct tftphdr *tp, char *error);
+void die(const char *fmt, ...);
 void die_on_error(struct tftphdr *tp);
 void send_error(int sockfd, union sock_addr *to, const char *msg);
 void send_ack(int sockfd, union sock_addr *to, unsigned short block);
-int recv_with_timeout(int s, void *in, int len, int timeout);
+int recv_with_timeout(int s, void *in, size_t len, int timeout);
 int recvfrom_with_timeout(int s, void *in, size_t len, union sock_addr *from, int timeout);
 int recvfrom_flags_with_timeout(int s,
                                 void *in,
@@ -79,7 +81,7 @@ int recvfrom_flags_with_timeout(int s,
                                 int flags);
 int receiver(int sockfd,
              union sock_addr *server,
-             int blocksize,
+             size_t blocksize,
              int windowsize,
              int timeout,
              FILE *fp,
@@ -88,7 +90,7 @@ int receiver(int sockfd,
 
 int sender(int sockfd,
            union sock_addr *server,
-           int blocksize,
+           size_t blocksize,
            int windowsize,
            int timeout,
            int rollover,

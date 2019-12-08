@@ -22,4 +22,7 @@ clean:
 	rm -f *.o *.obj *.exe $(LIB)
 
 distclean: clean
-	rm -f *~
+	rm -f *~ *.d
+
+DEPS:=$(OBJS:.o=.d)
+-include $(DEPS)

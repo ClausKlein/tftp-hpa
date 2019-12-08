@@ -17,6 +17,8 @@
 #ifndef TFTPD_REMAP_H
 #define TFTPD_REMAP_H
 
+#include "../config.h"             /* Must always included */
+
 /* Opaque type */
 struct rule;
 

@@ -1,3 +1,13 @@
+clausklein$ grep -wi --color TODO */*.c
+common/common.c:    /* TODO: jsynacek: I don't think any conversion should take place...
+common/tftpsubs.c:   Todo:  add some sort of final error check so when the write-buffer
+tftp/tftp.c:    off_t tsize = get_tsize(fd);  // TODO only useable for mode == "octet" ! CK
+tftp/tftp.c:    int v = atoi(val);  // TODO Use strtoul() or strtoumax()
+tftp/tftp.c:    int v = atoi(val);  // TODO Use strtoul(() or strtoumax()
+tftp/tftp.c:    /* TODO: Change the statistics in a separate patch (bits???)! */
+tftpd/tftpd.c:  /* TODO: warning: 'daemon' is deprecated on OSX; Use posix_spawn APIs instead! CK */
+clausklein$
+
 #=====================================
 max data segment size seems to be 9212!
 9212 + 4 0= 9K

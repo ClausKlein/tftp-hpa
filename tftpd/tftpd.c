@@ -33,8 +33,10 @@
  * SUCH DAMAGE.
  */
 
-#include "config.h"             /* Must be included first */
 #include "tftpd.h"
+
+#include "recvfrom.h"
+#include "remap.h"
 
 /*
  * Trivial file transfer protocol server.
@@ -50,10 +52,6 @@
 #include <syslog.h>
 #include <poll.h>
 #include <stdarg.h>
-
-#include "common/tftpsubs.h"
-#include "recvfrom.h"
-#include "remap.h"
 
 #ifdef HAVE_SYS_FILIO_H
 #include <sys/filio.h>          /* Necessary for FIONBIO on Solaris */

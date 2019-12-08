@@ -50,7 +50,7 @@ MCONFIG: configure MCONFIG.in aconfig.h.in
 	if test -x config.status; then \
 		./config.status --recheck && ./config.status ; \
 	else \
-		./configure ; \
+		./configure -C ; \
 	fi
 
 aconfig.h: MCONFIG

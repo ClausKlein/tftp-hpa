@@ -5,7 +5,7 @@
  *
  */
 
-#include "config.h"
+#include "../config.h"
 
 void *xrealloc(void *ptr, size_t size)
 {

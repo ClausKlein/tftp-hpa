@@ -3,20 +3,19 @@
 .SUFFIXES: .c .cc .o .s .S .i
 
 .c.o:
-	$(CC) $(CFLAGS) -c $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $<
 
 .c.s:
-	$(CC) $(CFLAGS) -S -o $@ $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) -S -o $@ $<
 
 .c.i:
-	$(CC) $(CFLAGS) -E -o $@ $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) -E -o $@ $<
 
 .cc.o:
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
 
 .cc.s:
-	$(CXX) $(CXXFLAGS) -S -o $@ $<
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -S -o $@ $<
 
 .cc.i:
-	$(CXX) $(CXXFLAGS) -E -o $@ $<
-
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -E -o $@ $<

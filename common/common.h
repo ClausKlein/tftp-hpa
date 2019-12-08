@@ -34,8 +34,9 @@
 #ifndef _COMMON_H
 #define _COMMON_H
 
-#include <netinet/in.h>
 #include "../config.h"
+
+#include <netinet/in.h>
 
 #define TIMEOUT 1000 /* ms */
 #define RETRIES 5

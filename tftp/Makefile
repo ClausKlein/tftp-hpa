@@ -25,4 +25,8 @@ clean:
 	rm -f *.o *.obj *.exe tftp tftp.1
 
 distclean: clean
-	rm -f *~
+	rm -f *~ *.d
+
+DEPS:=$(OBJS:.o=.d)
+-include $(DEPS)
+

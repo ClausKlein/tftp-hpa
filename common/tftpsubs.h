@@ -39,7 +39,6 @@
 #define TFTPSUBS_H
 
 #include "common.h"
-#include "../config.h"
 
 #ifdef HAVE_IPV6
 #define SOCKPORT(sock) \

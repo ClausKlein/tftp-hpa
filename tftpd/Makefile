@@ -26,4 +26,7 @@ clean:
 	rm -f *.o *.obj *.exe tftpd tftpsubs.c tftpsubs.h tftpd.8
 
 distclean: clean
-	rm -f *~
+	rm -f *~ *.d
+
+DEPS:=$(OBJS:.o=.d)
+-include $(DEPS)

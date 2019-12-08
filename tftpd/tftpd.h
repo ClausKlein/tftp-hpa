@@ -17,6 +17,8 @@
 #ifndef TFTPD_TFTPD_H
 #define TFTPD_TFTPD_H
 
+#include "../common/tftpsubs.h"
+
 void set_signal(int, void (*)(int), int);
 void *tfmalloc(size_t);
 char *tfstrdup(const char *);

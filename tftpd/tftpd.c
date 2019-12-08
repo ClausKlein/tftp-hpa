@@ -1189,11 +1189,15 @@ static int set_tsize(uintmax_t *vp)
 {
     uintmax_t sz = *vp;
 
-    if (!tsize_ok)
+    if (!tsize_ok) {
+        syslog(LOG_WARNING, "tftpd: tsize_ok == false!\n");
         return 0;
+    }
 
     if (sz == 0)
         sz = tsize;
+    else
+        tsize = sz; // NOTE: in case of WRQ! CK
 
     *vp = sz;
     return 1;
@@ -1288,8 +1292,9 @@ static void do_opt(const char *opt, const char *val, char **ap)
                 memcpy(p, retbuf, retlen+1);
                 p += retlen+1;
             } else {
-                nak(EOPTNEG, "Unsupported option(s) requested");
-                exit(0);
+                syslog(LOG_WARNING, "tftpd: Unsupported option(%s:%s) requested", opt, val);
+                //NO! nak(EOPTNEG, "Unsupported option(s) requested");
+                //NO! exit(0); CK
             }
             break;
         }
@@ -1485,6 +1490,7 @@ static int validate_access(char *filename, int mode,
           return (EACCESS);
         }
 #endif
+
         tsize = 0;
         tsize_ok = 1;
     }

@@ -173,7 +173,7 @@ static off_t get_tsize(int fd) {
     }
 
     return tsize;
-} 
+}
 
 /*
  * Send the requested file.
@@ -245,9 +245,9 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
 
                 if (str_equal(opt, "tsize")) {
                     off_t ts = strtoumax(val, NULL, 10);
+                    printf("client: server negotiated tsize: %llu\n", ts);
                     if (ts != tsize)
-                        printf("client: server negotiated tsize: %llu\n", ts);
-                    tsize = ts;
+                        tsize = ts;
                 }
 
                 n += strlen(val) + 1;
@@ -369,9 +369,9 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
 
                 if (str_equal(opt, "tsize")) {
                     off_t ts = strtoumax(val, NULL, 10);
+                    printf("client: server negotiated tsize: %llu\n", ts);
                     if (ts != tsize)
-                        printf("client: server negotiated tsize: %llu\n", ts);
-                    tsize = ts;
+                        tsize = ts;
                 }
 
                 n += strlen(val) + 1;

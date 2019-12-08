@@ -1,0 +1,1 @@
+tftp -m binay localhost -c get tftpd.bin delivers tsize==0

@@ -256,6 +256,7 @@ int receiver(int sockfd,
         if (n == 0) {
             if (--retries <= 0) {
                 r = E_TIMED_OUT;
+                snprintf(error, ERROR_MAXLEN, "Timeout");
                 goto abort;
             }
             continue;
@@ -271,6 +272,7 @@ int receiver(int sockfd,
                 if (size == 0 && ferror(fp)) {
                     send_error(sockfd, server, "Failed to write data");
                     r = E_FAILED_TO_WRITE;
+                    snprintf(error, ERROR_MAXLEN, "Failed to write data");
                     goto abort;
                 }
                 amount += size;
@@ -296,6 +298,7 @@ int receiver(int sockfd,
             r = E_RECEIVED_ERROR;
             goto abort;
         } else {
+            snprintf(error, ERROR_MAXLEN, "Unexpeted packet");
             r = E_UNEXPECTED_PACKET;
             goto abort;
         }

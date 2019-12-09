@@ -47,27 +47,12 @@ static void timed_out(void)
     exit(1);
 }
 
-// TODO: see common.c too! CK
-#if 0
-static void die(const char *fmt, ...)
-{
-    va_list ap;
-
-    va_start(ap, fmt);
-    fprintf(stderr, "Fatal: client: ");
-    vfprintf(stderr, fmt, ap);
-    printf("\n");
-    va_end(ap);
-    exit(1);
-}
-#endif
-
 static size_t make_request(unsigned short opcode,
                            const char *name,
                            const char *mode,
                            size_t blocksize,
                            int windowsize,
-                           off_t tsize,
+                           size_t tsize,
                            struct tftphdr *out)
 {
     char *cp, buf[16];
@@ -113,9 +98,9 @@ static size_t make_request(unsigned short opcode,
         len = strlen("tsize") + 1;
         memcpy(cp, "tsize", len);
         cp += len;
-        if (snprintf(buf, 16, "%lu", tsize) < 0)
+        if (snprintf(buf, 16, "%zu", tsize) < 0)
             die("out of memory");
-        printf("option request tsize:%s\n", buf);
+        printf("client: option request tsize:%s\n", buf);
         len = strlen(buf) + 1;
         memcpy(cp, buf, len);
         cp += len;
@@ -131,7 +116,7 @@ static void send_request(int sock,
                          const char *mode,
                          size_t blocksize,
                          unsigned windowsize,
-                         off_t tsize)
+                         size_t tsize)
 {
     struct tftphdr *out;
     size_t size;
@@ -167,9 +152,9 @@ static int wait_for_oack(int sock, union sock_addr *from, char **options, int *o
     return 1;
 }
 
-static off_t get_tsize(int fd) {
+static size_t get_tsize(int fd) {
     struct stat stbuf = {};
-    off_t tsize = 0;
+    size_t tsize = 0;
     if (fstat(fd, &stbuf) >= 0) {
         tsize = stbuf.st_size;
     } else {
@@ -179,6 +164,76 @@ static off_t get_tsize(int fd) {
     return tsize;
 }
 
+struct option_values {
+    int windowsize;
+    size_t blocksize;
+    size_t tsize;
+};
+
+static int tftp_parse_oack(int sock, union sock_addr *from, struct option_values *def)
+{
+    char *options;
+    int optlen;
+    int retries = RETRIES;
+    int r;
+    do {
+        r = wait_for_oack(sock, from, &options, &optlen);
+        if (r < 0) {
+            return 0;   // ACK received! CK
+        }
+
+        /* Parse returned options. */
+        int n = 0;
+        if (r != 0) {
+            char *opt, *val;
+
+            while (n < optlen) {
+                opt = options + n;
+                n += strlen(opt) + 1;
+                val = options + n;
+
+                if (str_equal(opt, "windowsize") && def->windowsize != 1) {
+                    int v = atoi(val);  // TODO Use strtoul(() or strtoumax()
+                    if (v != def->windowsize)
+                        printf("client: server negotiated different windowsize: %d\n", v);
+                    /* FIXME Assumes v > 0, it probably shouldn't. */
+                    def->windowsize = v;
+                }
+
+                if (str_equal(opt, "blocksize") && def->blocksize != SEGSIZE) {
+                    size_t bs = strtoul(val, NULL, 10);  // TBD Use strtoumax()
+                    if (bs != def->blocksize)
+                        printf("client: server negotiated different blocksize: %zu\n", bs);
+                    if ((bs < SEGSIZE) || (bs > MAX_SEGSIZE))
+                        die("client: server didn't negotiate valid blocksize");
+
+                    def->blocksize = bs;
+                }
+
+                if (str_equal(opt, "tsize")) {
+                    size_t ts = strtoumax(val, NULL, 10);
+                    printf("client: server negotiated tsize: %zu\n", ts);
+                    if (ts != def->tsize)
+                        def->tsize = ts;
+                }
+
+                n += strlen(val) + 1;
+            }
+
+            if (def->windowsize < 1) {
+                def->windowsize = 1;
+                printf("client: server didn't negotiate windowsize, continuing with windowsize=1\n");
+            }
+        }
+    } while (r == 0 && --retries > 0);
+
+    if (retries <= 0)
+        timed_out();
+
+    return 1;   // OK
+}
+
+
 /*
  * Send the requested file.
  */
@@ -187,12 +242,8 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
     union sock_addr server = g_peeraddr;
     unsigned long amount = 0;
     size_t blocksize = g_blocksize;
-    char *options;
-    int optlen;
-    int retries;
     FILE *fp;
-    int n, r;
-    off_t tsize = get_tsize(fd);  // TODO only useable for mode == "octet" ! CK
+    size_t tsize = get_tsize(fd);  // TODO only useable for mode == "octet" ! CK
 
     set_verbose(g_trace_opt + g_verbose);
 
@@ -209,75 +260,16 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
         goto no_options;
 #endif
 
-    retries = RETRIES;
-    do {
-        r = wait_for_oack(g_s, &server, &options, &optlen);
-        if (r < 0) {
-            return;
-        }
-
-        /* Parse returned options. */
-        n = 0;
-        if (r != 0) {
-            char *opt, *val;
-            int got_ws = 0;
-            int got_bs = 0;
-
-            while (n < optlen) {
-                opt = options + n;
-                n += strlen(opt) + 1;
-                val = options + n;
-
-                if (str_equal(opt, "windowsize") && windowsize != 1) {
-                    int v = atoi(val);  // TODO Use strtoul() or strtoumax()
-                    if (v != windowsize)
-                        printf("client: server negotiated different windowsize: %d\n", v);
-                    /* FIXME Assumes v > 0, it probably shouldn't. */
-                    windowsize = v;
-                    got_ws = 1;
-                }
-
-                if (str_equal(opt, "blocksize") && blocksize != 1) {
-                    size_t bs = strtoul(val, NULL, 10);  // TBD Use strtoumax()
-                    if (bs != blocksize)
-                        printf("client: server negotiated different blocksize: %ld\n", bs);
-                    /* FIXME Assumes bs is valid, it probably shouldn't. */
-                    /* if ((bs >= SEGSIZE) && (bs <= MAX_SEGSIZE)) */
-                    blocksize = bs;
-                    got_bs = 1;
-                }
-
-                if (str_equal(opt, "tsize")) {
-                    off_t ts = strtoumax(val, NULL, 10);
-                    printf("client: server negotiated tsize: %lu\n", ts);
-                    if (ts != tsize)
-                        tsize = ts;
-                }
-
-                n += strlen(val) + 1;
-            }
-
-            if (/***TODO got_ws == 1 && ***/ windowsize < 1) {
-                windowsize = 1;
-                printf("client: server didn't negotiate windowsize, continuing with windowsize=1\n");
-            }
-
-            if (got_bs == 1 && blocksize < SEGSIZE) {
-                blocksize = SEGSIZE;
-                printf("client: server didn't negotiate blocksize, continuing with blocksize=512\n");
-            }
-
-        }
-    } while (r == 0 && --retries > 0);
-    if (retries <= 0)
-        timed_out();
+    struct option_values values = {windowsize, blocksize, tsize};
+    int ok = tftp_parse_oack(g_s, &server, &values);
+    if (!ok) return;
 
 #if 0
 //XXX no_options:
-    if (windowsize < 0) {
+    if (!ok) {
+        int r;
         struct tftphdr *tp = (struct tftphdr *)pktbuf;
-
-        retries = RETRIES;
+        int retries = RETRIES;
         do {
             r = recvfrom_with_timeout(g_s, pktbuf, sizeof(pktbuf), &server, TIMEOUT);
             if (r == 0) {
@@ -296,7 +288,7 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
 #endif
 
     fp = fdopen(fd, "r");
-    r = sender(g_s, &server, blocksize, windowsize, TIMEOUT, 0, fp, &amount);
+    int r = sender(g_s, &server, values.blocksize, values.windowsize, TIMEOUT, 0, fp, &amount);
     if (r < 0)
         exit(1);
 
@@ -314,12 +306,9 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
     union sock_addr server = g_peeraddr;
     unsigned long amount = 0;
     size_t blocksize = g_blocksize;
-    char *options, error[ERROR_MAXLEN];
-    int optlen;
-    int retries;
+    char error[ERROR_MAXLEN] = {};
     FILE *fp;
-    int n, r;
-    off_t tsize = 0;
+    size_t tsize = 0;
 
     set_verbose(g_trace_opt + g_verbose);
 
@@ -336,75 +325,39 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
         goto no_options;
 #endif
 
-    retries = RETRIES;
-    do {
-        r = wait_for_oack(g_s, &server, &options, &optlen);
-        if (r < 0) {
-            return;
-        }
+    struct option_values values = {windowsize, blocksize, tsize};
+    int ok = tftp_parse_oack(g_s, &server, &values);
+    if (!ok) return;
 
-        /* Parse returned options. */
-        n = 0;
-        if (r != 0) {
-            char *opt, *val;
-            int got_ws = 0;
-            int got_bs = 0;
-
-            while (n < optlen) {
-                opt = options + n;
-                n += strlen(opt) + 1;
-                val = options + n;
-
-                if (str_equal(opt, "windowsize") && windowsize != 1) {
-                    int v = atoi(val);  // TODO Use strtoul(() or strtoumax()
-                    if (v != windowsize)
-                        printf("client: server negotiated different windowsize: %d\n", v);
-                    /* FIXME Assumes v > 0, it probably shouldn't. */
-                    windowsize = v;
-                    got_ws = 1;
-                }
-
-                if (str_equal(opt, "blocksize") && blocksize != 1) {
-                    size_t bs = strtoul(val, NULL, 10);  // TBD Use strtoumax()
-                    if (bs != blocksize)
-                        printf("client: server negotiated different blocksize: %ld\n", bs);
-                    /* FIXME Assumes bs is valid, it probably shouldn't. */
-                    /* if ((bs >= SEGSIZE) && (bs <= MAX_SEGSIZE)) */
-                    blocksize = bs;
-                    got_bs = 1;
-                }
-
-                if (str_equal(opt, "tsize")) {
-                    off_t ts = strtoumax(val, NULL, 10);
-                    printf("client: server negotiated tsize: %lu\n", ts);
-                    if (ts != tsize)
-                        tsize = ts;
-                }
-
-                n += strlen(val) + 1;
+#if 0
+//XXX no_options:
+    if (!ok) {
+        int r;
+        struct tftphdr *tp = (struct tftphdr *)pktbuf;
+        int retries = RETRIES;
+        do {
+            r = recvfrom_with_timeout(g_s, pktbuf, sizeof(pktbuf), &server, TIMEOUT);
+            if (r == 0) {
+                /* Timed out. */
+                continue;
             }
-
-            if (/***TODO got_ws == 1 && ***/ windowsize < 1) {
-                windowsize = 1;
-                printf("client: server didn't negotiate windowsize, continuing with windowsize=1\n");
+            if (ntohs(tp->th_opcode) == ACK && ntohs(tp->th_block) == 0) {
+                break;
+            } else if (ntohs(tp->th_opcode) == ERROR) {
+                die_on_error(tp);
             }
-
-            if (got_bs == 1 && blocksize < SEGSIZE) {
-                blocksize = SEGSIZE;
-                printf("client: server didn't negotiate blocksize, continuing with blocksize=512\n");
-            }
-        }
-    } while (r == 0 && --retries > 0);
-    if (retries <= 0)
-        timed_out();
+        } while (r == 0 && --retries > 0);
+        if (retries <= 0)
+            timed_out();
+    }
+#endif
 
     send_ack(g_s, &server, 0);
 
-//XXX no_options:
     fp = fdopen(fd, "w");
-    r = receiver(g_s, &server, blocksize, windowsize, TIMEOUT, fp, &amount, error);
+    int r = receiver(g_s, &server, values.blocksize, values.windowsize, TIMEOUT, fp, &amount, error);
     if (r < 0) {
-        fprintf(stderr, "%s\n", error);
+        fprintf(stderr, "client: %s\n", error);
         exit(1);
     }
 

@@ -1,3 +1,8 @@
+#=====================================
+tftp client should work with old servers
+(without support for option neogation!)
+#=====================================
+
 clausklein$ grep -wi --color TODO */*.c
 common/common.c:    /* TODO: jsynacek: I don't think any conversion should take place...
 common/tftpsubs.c:   Todo:  add some sort of final error check so when the write-buffer
@@ -10,7 +15,7 @@ clausklein$
 
 #=====================================
 max data segment size seems to be 9212!
-9212 + 4 0= 9K
+9212 + 4 0= 9K  (OSX only!)
 #=====================================
 
 clausklein$ time tftp/tftp -m binary -v -B 1432 -w 1 localhost -c get tftp.bin

@@ -1194,7 +1194,7 @@ static int set_tsize(uintmax_t *vp)
         return 0;
     }
 
-    syslog(LOG_NOTICE, "tftpd: mode octet: tsize == %llu!\n", tsize);
+    syslog(LOG_NOTICE, "tftpd: mode octet: tsize == %lu!\n", tsize);
     if (sz == 0)
         sz = tsize; // RRQ, tsize from validate_access()
     else

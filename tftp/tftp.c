@@ -113,7 +113,7 @@ static size_t make_request(unsigned short opcode,
         len = strlen("tsize") + 1;
         memcpy(cp, "tsize", len);
         cp += len;
-        if (snprintf(buf, 16, "%llu", tsize) < 0)
+        if (snprintf(buf, 16, "%lu", tsize) < 0)
             die("out of memory");
         printf("option request tsize:%s\n", buf);
         len = strlen(buf) + 1;
@@ -249,7 +249,7 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
 
                 if (str_equal(opt, "tsize")) {
                     off_t ts = strtoumax(val, NULL, 10);
-                    printf("client: server negotiated tsize: %llu\n", ts);
+                    printf("client: server negotiated tsize: %lu\n", ts);
                     if (ts != tsize)
                         tsize = ts;
                 }
@@ -257,7 +257,7 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
                 n += strlen(val) + 1;
             }
 
-            if (got_ws == 1 && windowsize < 1) {
+            if (/***TODO got_ws == 1 && ***/ windowsize < 1) {
                 windowsize = 1;
                 printf("client: server didn't negotiate windowsize, continuing with windowsize=1\n");
             }
@@ -272,6 +272,7 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
     if (retries <= 0)
         timed_out();
 
+#if 0
 //XXX no_options:
     if (windowsize < 0) {
         struct tftphdr *tp = (struct tftphdr *)pktbuf;
@@ -292,6 +293,8 @@ void tftp_sendfile(int fd, const char *name, const char *mode, int windowsize)
         if (retries <= 0)
             timed_out();
     }
+#endif
+
     fp = fdopen(fd, "r");
     r = sender(g_s, &server, blocksize, windowsize, TIMEOUT, 0, fp, &amount);
     if (r < 0)
@@ -373,7 +376,7 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
 
                 if (str_equal(opt, "tsize")) {
                     off_t ts = strtoumax(val, NULL, 10);
-                    printf("client: server negotiated tsize: %llu\n", ts);
+                    printf("client: server negotiated tsize: %lu\n", ts);
                     if (ts != tsize)
                         tsize = ts;
                 }
@@ -381,7 +384,7 @@ void tftp_recvfile(int fd, const char *name, const char *mode, int windowsize)
                 n += strlen(val) + 1;
             }
 
-            if (got_ws == 1 && windowsize < 1) {
+            if (/***TODO got_ws == 1 && ***/ windowsize < 1) {
                 windowsize = 1;
                 printf("client: server didn't negotiate windowsize, continuing with windowsize=1\n");
             }

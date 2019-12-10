@@ -86,7 +86,7 @@ static unsigned int max_blksize = MAX_SEGSIZE;
 static char tmpbuf[INET6_ADDRSTRLEN], *tmp_p;
 
 static union sock_addr from;
-static off_t tsize;
+static uintmax_t tsize;
 static int tsize_ok;
 
 static int ndirs;
@@ -1196,7 +1196,7 @@ static int set_tsize(uintmax_t *vp)
         return 0;
     }
 
-    syslog(LOG_NOTICE, "tftpd: mode octet: tsize == %lu!\n", tsize);
+    syslog(LOG_NOTICE, "tftpd: mode octet: tsize == %zu!\n", tsize);
     if (sz == 0)
         sz = tsize; // RRQ, tsize from validate_access()
     else

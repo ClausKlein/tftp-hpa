@@ -210,7 +210,8 @@ static void pmtu_discovery_off(int fd)
 #if defined(IP_MTU_DISCOVER) && defined(IP_PMTUDISC_DONT)
     int pmtu = IP_PMTUDISC_DONT;
 
-    setsockopt(fd, IPPROTO_IP, IP_MTU_DISCOVER, &pmtu, sizeof(pmtu));
+    if (setsockopt(fd, IPPROTO_IP, IP_MTU_DISCOVER, &pmtu, sizeof(pmtu)))
+        syslog(LOG_ERR, "cannot setsockopt IP_MTU_DISCOVER %m");
 #endif
 }
 
@@ -706,7 +707,7 @@ int main(int argc, char **argv)
     }
 
     /* Disable path MTU discovery */
-    pmtu_discovery_off(fd);
+    pmtu_discovery_off(fd); // TODO: cannot setsockopt IP_MTU_DISCOVER Bad file descriptor
 
     /* This means we don't want to wait() for children */
 #ifdef SA_NOCLDWAIT

@@ -44,6 +44,7 @@
  * This version includes many modifications by Jim Guyton <guyton@rand-unix>
  */
 
+#include <assert.h>
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <ctype.h>
@@ -833,7 +834,7 @@ int main(int argc, char **argv)
 
         if (standalone) {
             if ((from.sa.sa_family == AF_INET) &&
-              (myaddr.si.sin_addr.s_addr == INADDR_ANY)) {
+                (myaddr.si.sin_addr.s_addr == INADDR_ANY)) {
                 /* myrecvfrom() didn't capture the source address; but we might
                    have bound to a specific address, if so we should use it */
                 memcpy(SOCKADDR_P(&myaddr), &bindaddr4.sin_addr,
@@ -887,7 +888,7 @@ int main(int argc, char **argv)
                               tmpbuf, INET6_ADDRSTRLEN);
     if (!tmp_p) {
         tmp_p = tmpbuf;
-        strcpy(tmpbuf, "???");
+        strcpy(tmpbuf, "???");  // TODO: what does this help? CK
     }
     if (hosts_access(&wrap_request) == 0) {
         if (deny_severity != -1)
@@ -1049,7 +1050,7 @@ int tftp(struct tftphdr *tp, int size)
                 exit(0);
             }
             if (!(filename = (*pf->f_rewrite)
-                  (origfilename, tp_opcode, from.sa.sa_family, &errmsgptr))) {
+                (origfilename, tp_opcode, from.sa.sa_family, &errmsgptr))) {
                 nak(EACCESS, errmsgptr);        /* File denied by mapping rule */
                 exit(0);
             }
@@ -1061,8 +1062,9 @@ int tftp(struct tftphdr *tp, int size)
                                           tmpbuf, INET6_ADDRSTRLEN);
                 if (!tmp_p) {
                     tmp_p = tmpbuf;
-                    strcpy(tmpbuf, "???");
+                    strcpy(tmpbuf, "???");  // TODO: what does this help? CK
                 }
+
                 if (filename == origfilename
                     || !strcmp(filename, origfilename))
                     syslog(LOG_NOTICE, "%s from %s filename %s\n",
@@ -1079,7 +1081,6 @@ int tftp(struct tftphdr *tp, int size)
                     syslog(LOG_NOTICE, "Client %s File not found %s\n",
                     tmp_p,filename);
                 }
-
             }
 
             if (ecode) {
@@ -1561,13 +1562,16 @@ static void tftp_sendfile(const struct formats *pf, struct tftphdr *oap, int oac
     tmp_p = (char *)inet_ntop(from.sa.sa_family, SOCKADDR_P(&from),
                               tmpbuf, INET6_ADDRSTRLEN);
     if (!tmp_p) {
-            tmp_p = tmpbuf;
-            strcpy(tmpbuf, "???");
+        tmp_p = tmpbuf;
+        strcpy(tmpbuf, "???");  // TODO: what does this help? CK
     }
     syslog(LOG_NOTICE, "Client %s finished %s", tmp_p, filename);
+
 abort:
-    if (timed_out || r == E_TIMED_OUT)
+    if (timed_out || r == E_TIMED_OUT) {
+        assert(tmp_p);
         syslog(LOG_NOTICE, "Client %s timed out", tmp_p);
+    }
     fclose(file);
 }
 
@@ -1610,9 +1614,12 @@ static void tftp_recvfile(const struct formats *pf, struct tftphdr *oap, int oac
     }
 
     r = receiver(peer, NULL, segsize, windowsize, TIMEOUT, file, NULL, NULL);
+
 abort:
-    if (timed_out || r == E_TIMED_OUT)
+    if (timed_out || r == E_TIMED_OUT) {
+        assert(tmp_p);
         syslog(LOG_NOTICE, "Client %s timed out", tmp_p);
+    }
     fclose(file);
 }
 
@@ -1668,7 +1675,7 @@ static void nak(int error, const char *msg)
                                   tmpbuf, INET6_ADDRSTRLEN);
         if (!tmp_p) {
             tmp_p = tmpbuf;
-            strcpy(tmpbuf, "???");
+            strcpy(tmpbuf, "???");  // TODO: what does this help? CK
         }
         syslog(LOG_INFO, "sending NAK (%d, %s) to %s",
                error, tp->th_msg, tmp_p);

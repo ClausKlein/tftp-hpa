@@ -19,11 +19,12 @@ clean:
 	-rm -f *.a *.o *.obj *.exe
 
 distclean: clean
-	-rm -f *~
+	-rm -f *~ *.d
 
 libxtra.a: $(LIBOBJS)
 	-rm -f libxtra.a
 	$(AR) libxtra.a $(LIBOBJS)
 	$(RANLIB) libxtra.a
 
-
+DEPS:=$(LIBOBJS:.o=.d)
+-include $(DEPS)

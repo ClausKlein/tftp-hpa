@@ -1,15 +1,15 @@
 /*
- * xmalloc.c
+ * xrealloc.c
  *
- * Simple error-checking version of malloc()
+ * Simple error-checking version of realloc()
  *
  */
 
 #include "../config.h"
 
-void *xmalloc(size_t size)
+void *xrealloc(void *ptr, size_t size)
 {
-    void *p = malloc(size);
+    void *p = realloc(ptr, size);
 
     if (!p) {
         fprintf(stderr, "Out of memory!\n");

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 1993
- *	The Regents of the University of California.  All rights reserved.
+ *      The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -12,8 +12,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
+ *      This product includes software developed by the University of
+ *      California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -39,7 +39,6 @@
 #define TFTPSUBS_H
 
 #include "common.h"
-#include "config.h"
 
 #ifdef HAVE_IPV6
 #define SOCKPORT(sock) \
@@ -66,7 +65,7 @@ int is_numeric_ipv6(const char *);
 char *strip_address(char *);
 #else
 #define is_numeric_ipv6(a)      0
-#define strip_address(a)	(a)
+#define strip_address(a)        (a)
 #endif
 
 static inline int sa_set_port(union sock_addr *s, u_short port)
@@ -101,7 +100,11 @@ int write_behind(FILE *, int);
 int writeit(FILE *, struct tftphdr **, int, int);
 
 extern int segsize;
-#define MAX_SEGSIZE	65464
+#define MAX_SEGSIZE     65464
+
+#ifndef PKTSIZE
+#define PKTSIZE (MAX_SEGSIZE + 4)
+#endif
 
 int pick_port_bind(int sockfd, union sock_addr *myaddr,
                    unsigned int from, unsigned int to);

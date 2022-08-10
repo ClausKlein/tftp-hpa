@@ -15,7 +15,7 @@
  *
  */
 
-#include "config.h"
+#include "../common/common.h"
 
 int
 myrecvfrom(int s, void *buf, int len, unsigned int flags,

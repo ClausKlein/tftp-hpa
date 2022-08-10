@@ -1,0 +1,96 @@
+commit ed30f904ea00e36a535fe8511d27f3603171bca6
+Author: ClausKlein <claus.klein@arcormail.de>
+Date:   Sun Dec 8 13:50:52 2019 +0100
+
+    fix common die() function usage
+
+    update TODO! max blocksize seems to be 9212 bytes
+
+commit 0c7400c4626ed8be9c73053533f10ff1c9880b8e
+Author: ClausKlein <claus.klein@arcormail.de>
+Date:   Sun Dec 8 10:06:50 2019 +0100
+
+    do not abort when unsuported options are requested
+
+    NOTE: in netascii mode, tsize option can't be calculated
+
+commit 86a0d4169390fd7dc88c8507dd8776be65787b4a
+Author: ClausKlein <claus.klein@arcormail.de>
+Date:   Sun Dec 8 08:56:01 2019 +0100
+
+    generate header dependency files and use them
+
+    Note: the include order should not matter!
+    reoder includes, force header to be compileable
+
+commit cacdce80c1b97e33d1f0743e20ee2498be3e9da1
+Author: ClausKlein <claus.klein@arcormail.de>
+Date:   Sat Dec 7 20:01:27 2019 +0100
+
+    use tsize option too
+
+    show used options with status command too
+
+commit 23fc685e956c8e4da5df22e3736a96f8195a30c8
+Author: ClausKlein <claus.klein@arcormail.de>
+Date:   Sat Dec 7 11:02:58 2019 +0100
+
+    fix option handling
+
+    write newline too with printf() messages
+
+commit 9e9051555615860f68544a96fef13aa94b529563
+Author: ClausKlein <claus.klein@arcormail.de>
+Date:   Sat Dec 7 10:07:02 2019 +0100
+
+    add blocksize option to tftp client too
+
+    replace more tabs and tailing white spaces
+
+commit 1784d176830f1b275f5949869e2f5ee5bb41dcc6
+Author: ClausKlein <claus.klein@arcormail.de>
+Date:   Thu Dec 5 20:54:35 2019 +0100
+
+    expand tabs
+
+commit 1d165aaf66fb084d70ff419d3091bbdcc19eef73
+Author: ClausKlein <claus.klein@arcormail.de>
+Date:   Mon Nov 25 23:05:56 2019 +0100
+
+    prevent more warnings on mac OSX
+
+commit da3334ae24e60b13598a946959d1e7670abfd42c
+Author: Claus Klein <claus.klein@arcormail.de>
+Date:   Mon Nov 25 14:23:16 2019 +0100
+
+    be more strict, prevent gcc -Wextra warnings
+
+    prevent buffer overflow too
+
+commit c672c64fcd4c00d5c47af74ac67bcca07c9d8c8d
+Author: ClausKlein <claus.klein@arcormail.de>
+Date:   Mon Nov 25 10:35:41 2019 +0100
+
+    added new files from ReadHead patches too
+
+commit f4958d94141bcff88c432f4eda838603a1c20597
+Author: ClausKlein <claus.klein@arcormail.de>
+Date:   Mon Nov 25 10:30:16 2019 +0100
+
+    Support for the TFTP windowsize option (RFC 7440)
+
+    see https://git.centos.org/forks/clausklein/rpms/tftp.git
+
+    apply patches from Red Hat 7.5:
+    tftp-0.40-remap.patch
+    tftp-hpa-0.39-tzfix.patch
+    tftp-0.42-tftpboot.patch
+    tftp-0.49-chk_retcodes.patch
+    tftp-hpa-0.49-fortify-strcpy-crash.patch
+    tftp-0.49-cmd_arg.patch
+    tftp-hpa-0.49-stats.patch
+    tftp-hpa-5.2-pktinfo.patch
+    tftp-doc.patch
+    tftp-enhanced-logging.patch
+    tftp-rfc7440-windowsize.patch
+    tftp-rewrite-macro.patch

@@ -15,6 +15,7 @@ AC_C_INLINE
 
 PA_ADD_CFLAGS(-W)
 PA_ADD_CFLAGS(-Wall)
+PA_ADD_CFLAGS(-Wextra)
 PA_ADD_CFLAGS(-Wpointer-arith)
 PA_ADD_CFLAGS(-Wbad-function-cast)
 PA_ADD_CFLAGS(-Wcast-equal)

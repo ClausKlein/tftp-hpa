@@ -137,10 +137,10 @@
 /* Some broken systems care about text versus binary, but
    real Unix systems don't... */
 #ifndef HAVE_O_TEXT_DEFINITION
-#define O_TEXT		0
+#define O_TEXT      0
 #endif
 #ifndef HAVE_O_BINARY_DEFINITION
-#define O_BINARY	0
+#define O_BINARY    0
 #endif
 
 /* If we don't have intmax_t, try creating it */
@@ -149,7 +149,7 @@
 #ifdef HAVE_LONG_LONG
 typedef long long intmax_t;
 typedef unsigned long long uintmax_t;
-#define PRIdMAX	"lld"
+#define PRIdMAX "lld"
 #define PRIuMAX "llu"
 #define PRIxMAX "llx"
 #define INTMAX_C(x)  (x##LL)
@@ -179,7 +179,7 @@ typedef unsigned long uintmax_t;
 #ifdef HAVE_LONG_LONG
 #define intmax_t long long
 #define uintmax_t unsigned long long
-#define PRIdMAX	"Ld"
+#define PRIdMAX "Ld"
 #define PRIuMAX "Lu"
 #define PRIxMAX "Lx"
 #define INTMAX_C(x)  (x##LL)
@@ -187,7 +187,7 @@ typedef unsigned long uintmax_t;
 #else
 #define intmax_t long
 #define uintmax_t unsigned long
-#define PRIdMAX	"ld"
+#define PRIdMAX "ld"
 #define PRIuMAX "lu"
 #define PRIxMAX "lx"
 #define INTMAX_C(x)  (x##L)
@@ -301,9 +301,10 @@ void *xmalloc(size_t);
 void *xrealloc(void *, size_t);
 char *xstrdup(const char *);
 
-#ifndef HAVE_BSD_SIGNAL
-void (*bsd_signal(int, void (*)(int))) (int);
+#if defined(HAVE_BSD_SIGNAL) && !defined(_BSD_SOURCE)
+void (*bsd_signal(int signum, void (*handler) (int))) (int);
 #endif
+
 #ifndef HAVE_DUP2
 int dup2(int, int);
 #endif

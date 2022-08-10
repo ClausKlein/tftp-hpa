@@ -14,9 +14,9 @@
  * Minor help routines.
  */
 
-#include "config.h"             /* Must be included first! */
-#include <syslog.h>
 #include "tftpd.h"
+
+#include <syslog.h>
 
 /*
  * Set the signal handler and flags.  Basically a user-friendly
